@@ -1,0 +1,865 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parser Validation & Analytics Platform</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d',
+            },
+            darkbg: '#0f172a',
+            cardbg: '#1e293b',
+            bordercol: '#334155'
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .glass { background: rgba(30, 41, 59, 0.75); backdrop-filter: blur(8px); }
+  </style>
+</head>
+<body class="bg-darkbg text-slate-100 min-h-screen font-sans flex flex-col">
+
+  <!-- TOP NAVIGATION -->
+  <header class="border-b border-bordercol glass sticky top-0 z-40 px-6 py-4 flex items-center justify-between shadow-lg">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold text-xl shadow-md shadow-emerald-500/20">
+        <i class="fa-solid fa-code-compare"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-lg text-slate-100 tracking-tight flex items-center gap-2">
+          Parser Validation Platform
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/60">V1 vs V3</span>
+        </h1>
+        <p class="text-xs text-slate-400">DeepDiff &amp; JSON-Path Extraction Metric Engine</p>
+      </div>
+    </div>
+    <div class="flex items-center space-x-4">
+      <div id="connStatusBadge" class="flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
+        <span class="w-2 h-2 rounded-full bg-slate-500 animate-pulse"></span>
+        <span id="connStatusText">Not Connected</span>
+      </div>
+      <a href="/docs" target="_blank" class="text-xs text-slate-400 hover:text-emerald-400 transition flex items-center gap-1.5 py-1.5 px-3 rounded-lg bg-slate-800/60 border border-bordercol hover:border-emerald-500/40">
+        <i class="fa-solid fa-book"></i> API Docs
+      </a>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
+
+    <!-- STEP 1: MONGODB CONFIGURATION & DISCOVERY -->
+    <div class="bg-cardbg border border-bordercol rounded-2xl p-6 shadow-xl relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center space-x-2">
+          <span class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-sm border border-emerald-500/20">1</span>
+          <h2 class="font-semibold text-base text-slate-200">MongoDB Data Source Connection</h2>
+        </div>
+        <div id="docCountContainer" class="hidden text-xs text-slate-400">
+          Total Documents: <span id="totalDocCount" class="font-bold text-emerald-400 font-mono">0</span>
+        </div>
+      </div>
+
+      <form id="connectForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1.5">MongoDB URI</label>
+          <div class="relative">
+            <input type="text" id="mongoUri" placeholder="mongodb://localhost:27017" required
+              class="w-full bg-slate-900 border border-bordercol rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition font-mono text-xs" />
+            <i class="fa-solid fa-database absolute right-3 top-3 text-slate-500 text-xs"></i>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1.5">Database Name</label>
+          <input type="text" id="databaseName" placeholder="e.g. maprecruit" list="dbList" required
+            class="w-full bg-slate-900 border border-bordercol rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition" />
+          <datalist id="dbList"></datalist>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-400 mb-1.5">Collection Name</label>
+          <input type="text" id="collectionName" placeholder="e.g. jd3" list="colList" required
+            class="w-full bg-slate-900 border border-bordercol rounded-xl px-3.5 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition" />
+          <datalist id="colList"></datalist>
+        </div>
+        <div class="flex items-end space-x-2">
+          <button type="submit" id="btnConnect"
+            class="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-semibold py-2.5 px-4 rounded-xl text-sm transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-600/20 active:scale-98">
+            <i class="fa-solid fa-plug"></i>
+            <span>Connect &amp; Preview</span>
+          </button>
+        </div>
+      </form>
+
+      <!-- PREVIEW ACCORDION (Hidden by default) -->
+      <div id="previewPanel" class="mt-4 pt-4 border-t border-bordercol/80 hidden">
+        <div class="flex items-center justify-between mb-2">
+          <button id="togglePreviewBtn" class="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1.5 font-medium">
+            <i class="fa-solid fa-chevron-down text-xs transition-transform" id="previewChevron"></i>
+            <span>Sample Documents (<span id="sampleCount">0</span> loaded)</span>
+          </button>
+          <span class="text-[11px] text-slate-500">Auto-discovered paths ready</span>
+        </div>
+        <div id="previewContent" class="bg-slate-900/90 rounded-xl p-3 border border-bordercol text-xs font-mono max-h-48 overflow-y-auto hidden text-slate-300">
+          <pre id="previewJsonOutput"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: PATH QUERY & PIPELINE TRIGGER -->
+    <div class="bg-cardbg border border-bordercol rounded-2xl p-6 shadow-xl">
+      <div class="flex items-center space-x-2 mb-4">
+        <span class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-sm border border-emerald-500/20">2</span>
+        <h2 class="font-semibold text-base text-slate-200">Path Extraction &amp; Validation Pipeline</h2>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+        <!-- Suggested Paths Dropdown -->
+        <div class="md:col-span-5">
+          <label class="block text-xs font-medium text-slate-400 mb-1.5">Auto-Discovered Paths</label>
+          <select id="suggestedPathsSelect" class="w-full bg-slate-900 border border-bordercol rounded-xl px-3.5 py-2.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500 transition">
+            <option value="" selected>-- Select or Type a Path Below --</option>
+            <option value="root['details']['locations'][*]['text']">root['details']['locations'][*]['text'] (Locations)</option>
+            <option value="root['details']['skills'][*]['name']">root['details']['skills'][*]['name'] (Skills)</option>
+            <option value="root['skills'][*]">root['skills'][*] (Skills list)</option>
+            <option value="root['details']['job_title']">root['details']['job_title'] (Job Title)</option>
+          </select>
+        </div>
+
+        <!-- Target Path Input -->
+        <div class="md:col-span-5">
+          <label class="block text-xs font-medium text-slate-400 mb-1.5">Target JSON Path Expression</label>
+          <input type="text" id="targetPathInput" value="" required
+            placeholder="e.g. root['details']['locations'][*]['text']"
+            class="w-full bg-slate-900 border border-bordercol rounded-xl px-3.5 py-2.5 text-xs font-mono text-emerald-400 focus:outline-none focus:border-emerald-500 transition" />
+        </div>
+
+        <!-- Limit & Run Button -->
+        <div class="md:col-span-2 flex items-end">
+          <button type="button" id="btnRunAnalysis" disabled
+            class="w-full bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-950 font-bold py-2.5 px-4 rounded-xl text-sm transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20 active:scale-98">
+            <i class="fa-solid fa-bolt"></i>
+            <span>Run Pipeline</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- PROGRESS / LOADING BAR -->
+      <div id="loadingProgress" class="mt-4 pt-4 border-t border-bordercol hidden space-y-2">
+        <div class="flex items-center justify-between text-xs">
+          <span id="loadingStepText" class="text-emerald-400 flex items-center gap-2">
+            <i class="fa-solid fa-circle-notch fa-spin"></i> Processing DeepDiff &amp; Path Analytics...
+          </span>
+          <span class="text-slate-500" id="loadingPercent">In-Memory Engine</span>
+        </div>
+        <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+          <div class="bg-gradient-to-r from-emerald-500 to-teal-400 h-1.5 rounded-full animate-pulse" style="width: 100%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 3: RESULTS & ANALYTICS DASHBOARD (Hidden until analysis runs) -->
+    <div id="resultsSection" class="hidden space-y-6">
+
+      <!-- ACTION BAR: SUMMARY TITLE & EXPORT BUTTONS -->
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 bg-cardbg border border-bordercol rounded-2xl p-4 shadow-md">
+        <div>
+          <h3 class="font-bold text-base text-slate-100 flex items-center gap-2">
+            <i class="fa-solid fa-chart-simple text-emerald-400"></i> Analysis Results
+            <span id="resPathTag" class="text-xs font-mono px-2 py-0.5 rounded-md bg-slate-800 text-emerald-300 border border-slate-700"></span>
+          </h3>
+          <p class="text-xs text-slate-400 mt-0.5">Calculated across all collection documents using unified in-memory pipeline</p>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button id="btnExportCsv" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-bordercol px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
+            <i class="fa-solid fa-file-csv text-emerald-400"></i> Export CSV
+          </button>
+          <button id="btnExportJson" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-bordercol px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
+            <i class="fa-solid fa-file-code text-teal-400"></i> Export JSON
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI METRIC CARDS -->
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <!-- Card 1 -->
+        <div class="bg-cardbg border border-bordercol rounded-2xl p-4 shadow-md flex flex-col justify-between">
+          <span class="text-xs font-medium text-slate-400">Total Docs</span>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="kpiTotalDocs" class="text-2xl font-black text-slate-100">0</span>
+            <i class="fa-solid fa-folder text-slate-600 text-sm"></i>
+          </div>
+        </div>
+        <!-- Card 2 -->
+        <div class="bg-cardbg border border-emerald-900/60 rounded-2xl p-4 shadow-md flex flex-col justify-between bg-emerald-950/20">
+          <span class="text-xs font-medium text-emerald-400">Common / Matched</span>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="kpiCommon" class="text-2xl font-black text-emerald-400">0</span>
+            <i class="fa-solid fa-check-double text-emerald-500 text-sm"></i>
+          </div>
+        </div>
+        <!-- Card 3 -->
+        <div class="bg-cardbg border border-blue-900/60 rounded-2xl p-4 shadow-md flex flex-col justify-between bg-blue-950/20">
+          <span class="text-xs font-medium text-blue-400">Added in V3</span>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="kpiAdded" class="text-2xl font-black text-blue-400">0</span>
+            <i class="fa-solid fa-plus text-blue-500 text-sm"></i>
+          </div>
+        </div>
+        <!-- Card 4 -->
+        <div class="bg-cardbg border border-rose-900/60 rounded-2xl p-4 shadow-md flex flex-col justify-between bg-rose-950/20">
+          <span class="text-xs font-medium text-rose-400">Removed in V3</span>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="kpiRemoved" class="text-2xl font-black text-rose-400">0</span>
+            <i class="fa-solid fa-minus text-rose-500 text-sm"></i>
+          </div>
+        </div>
+        <!-- Card 5 -->
+        <div class="bg-cardbg border border-amber-900/60 rounded-2xl p-4 shadow-md flex flex-col justify-between bg-amber-950/20">
+          <span class="text-xs font-medium text-amber-400">Partial Matches</span>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="kpiPartial" class="text-2xl font-black text-amber-400">0</span>
+            <i class="fa-solid fa-sliders text-amber-500 text-sm"></i>
+          </div>
+        </div>
+        <!-- Card 6 -->
+        <div class="bg-cardbg border border-purple-900/60 rounded-2xl p-4 shadow-md flex flex-col justify-between bg-purple-950/20">
+          <span class="text-xs font-medium text-purple-400">Overlap / F1-Score</span>
+          <div class="mt-2 flex items-baseline justify-between">
+            <span id="kpiF1" class="text-2xl font-black text-purple-400">0%</span>
+            <i class="fa-solid fa-bullseye text-purple-500 text-sm"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- CHARTS ROW -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Chart 1: Donut Chart -->
+        <div class="lg:col-span-5 bg-cardbg border border-bordercol rounded-2xl p-5 shadow-xl flex flex-col">
+          <h4 class="font-semibold text-sm text-slate-200 mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-chart-pie text-emerald-400"></i> Category Distribution
+          </h4>
+          <div class="flex-1 relative min-h-[260px] flex items-center justify-center">
+            <canvas id="categoryChart"></canvas>
+          </div>
+        </div>
+        <!-- Chart 2: Top Changed Tokens Bar Chart -->
+        <div class="lg:col-span-7 bg-cardbg border border-bordercol rounded-2xl p-5 shadow-xl flex flex-col">
+          <h4 class="font-semibold text-sm text-slate-200 mb-3 flex items-center gap-2">
+            <i class="fa-solid fa-chart-bar text-teal-400"></i> Top Tokens Added vs Removed
+          </h4>
+          <div class="flex-1 relative min-h-[260px]">
+            <canvas id="tokensChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- PER-DOCUMENT DETAILED TABLE -->
+      <div class="bg-cardbg border border-bordercol rounded-2xl shadow-xl overflow-hidden">
+        <div class="p-4 border-b border-bordercol flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div>
+            <h4 class="font-semibold text-sm text-slate-200 flex items-center gap-2">
+              <i class="fa-solid fa-table-list text-emerald-400"></i> Document-Level Breakdown
+            </h4>
+            <p class="text-xs text-slate-400">Aggregated metrics per MongoDB Document ID</p>
+          </div>
+          <div class="flex items-center space-x-2 w-full sm:w-auto">
+            <div class="relative w-full sm:w-64">
+              <input type="text" id="tableSearch" placeholder="Search Document ID..."
+                class="w-full bg-slate-900 border border-bordercol rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-emerald-500 font-mono" />
+              <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2.5 text-slate-500 text-xs"></i>
+            </div>
+            <select id="tableFilter" class="bg-slate-900 border border-bordercol rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-emerald-500">
+              <option value="all">All Documents</option>
+              <option value="modified">Modified Only</option>
+              <option value="exact">Exact Matches</option>
+              <option value="partial">Has Partial</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr class="border-b border-bordercol bg-slate-900/60 text-slate-400 uppercase tracking-wider font-semibold">
+                <th class="p-3.5 pl-5">Document ID</th>
+                <th class="p-3.5 text-center">V1 Count</th>
+                <th class="p-3.5 text-center">V3 Count</th>
+                <th class="p-3.5 text-center">Common</th>
+                <th class="p-3.5 text-center">Added (V3)</th>
+                <th class="p-3.5 text-center">Removed (V1)</th>
+                <th class="p-3.5 text-center">Partial</th>
+                <th class="p-3.5 pr-5 text-right">Details</th>
+              </tr>
+            </thead>
+            <tbody id="documentsTableBody" class="divide-y divide-bordercol/60 text-slate-300">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- TABLE PAGINATION -->
+        <div class="p-3.5 border-t border-bordercol flex items-center justify-between text-xs text-slate-400 bg-slate-900/40">
+          <div id="tableInfo">Showing 0 documents</div>
+          <div class="flex items-center space-x-1">
+            <button id="btnPrevPage" class="px-2.5 py-1 rounded-lg border border-bordercol hover:bg-slate-800 disabled:opacity-40" disabled>
+              <i class="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+            <span id="pageIndicator" class="px-3 font-mono text-slate-300">1</span>
+            <button id="btnNextPage" class="px-2.5 py-1 rounded-lg border border-bordercol hover:bg-slate-800 disabled:opacity-40" disabled>
+              <i class="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- MODAL: DOCUMENT DETAIL & SIDE-BY-SIDE DIFF -->
+  <div id="docDetailModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-cardbg border border-bordercol rounded-2xl w-full max-w-3xl max-h-[85vh] shadow-2xl flex flex-col overflow-hidden animate-fade-in">
+      <div class="p-4 border-b border-bordercol flex items-center justify-between bg-slate-900/60">
+        <div>
+          <h3 class="font-bold text-sm text-slate-100 flex items-center gap-2">
+            <i class="fa-solid fa-file-invoice text-emerald-400"></i> Document Inspection
+          </h3>
+          <p class="text-xs font-mono text-emerald-400 mt-0.5" id="modalDocId"></p>
+        </div>
+        <button id="closeModalBtn" class="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-5 overflow-y-auto flex-1">
+        <!-- Sets comparison -->
+        <div>
+          <h4 class="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-check text-xs"></i> Common Tokens (Identical in V1 &amp; V3)
+          </h4>
+          <div id="modalCommonBadges" class="flex flex-wrap gap-1.5 p-3 rounded-xl bg-slate-900/90 border border-bordercol min-h-[44px]">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <h4 class="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <i class="fa-solid fa-plus-circle text-xs"></i> Added in V3
+            </h4>
+            <div id="modalAddedBadges" class="flex flex-wrap gap-1.5 p-3 rounded-xl bg-slate-900/90 border border-bordercol min-h-[44px]">
+            </div>
+          </div>
+          <div>
+            <h4 class="text-xs font-semibold text-rose-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <i class="fa-solid fa-minus-circle text-xs"></i> Removed in V3 (Present in V1)
+            </h4>
+            <div id="modalRemovedBadges" class="flex flex-wrap gap-1.5 p-3 rounded-xl bg-slate-900/90 border border-bordercol min-h-[44px]">
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-xs font-semibold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-code-fork text-xs"></i> Partial / String Distance Matches
+          </h4>
+          <div id="modalPartialContainer" class="space-y-2 p-3 rounded-xl bg-slate-900/90 border border-bordercol min-h-[44px]">
+          </div>
+        </div>
+      </div>
+
+      <div class="p-3 border-t border-bordercol bg-slate-900/60 flex justify-end">
+        <button id="closeModalFooterBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-1.5 rounded-xl text-xs font-medium transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT APPLICATION CONTROLLER -->
+  <script>
+    // State management
+    let state = {
+      connected: false,
+      sampleDocs: [],
+      suggestedPaths: [],
+      currentAnalysis: null,
+      tableData: [],
+      currentPage: 1,
+      pageSize: 10,
+      charts: { category: null, tokens: null }
+    };
+
+    // DOM Elements
+    const connectForm = document.getElementById('connectForm');
+    const mongoUriInput = document.getElementById('mongoUri');
+    const databaseInput = document.getElementById('databaseName');
+    const collectionInput = document.getElementById('collectionName');
+    const btnConnect = document.getElementById('btnConnect');
+    const connStatusBadge = document.getElementById('connStatusBadge');
+    const connStatusText = document.getElementById('connStatusText');
+    const docCountContainer = document.getElementById('docCountContainer');
+    const totalDocCount = document.getElementById('totalDocCount');
+    const previewPanel = document.getElementById('previewPanel');
+    const togglePreviewBtn = document.getElementById('togglePreviewBtn');
+    const previewContent = document.getElementById('previewContent');
+    const previewChevron = document.getElementById('previewChevron');
+    const previewJsonOutput = document.getElementById('previewJsonOutput');
+    const sampleCount = document.getElementById('sampleCount');
+    const suggestedPathsSelect = document.getElementById('suggestedPathsSelect');
+    const targetPathInput = document.getElementById('targetPathInput');
+    const btnRunAnalysis = document.getElementById('btnRunAnalysis');
+    const loadingProgress = document.getElementById('loadingProgress');
+    const resultsSection = document.getElementById('resultsSection');
+    const resPathTag = document.getElementById('resPathTag');
+    const dbList = document.getElementById('dbList');
+    const colList = document.getElementById('colList');
+
+    // KPI Elements
+    const kpiTotalDocs = document.getElementById('kpiTotalDocs');
+    const kpiCommon = document.getElementById('kpiCommon');
+    const kpiAdded = document.getElementById('kpiAdded');
+    const kpiRemoved = document.getElementById('kpiRemoved');
+    const kpiPartial = document.getElementById('kpiPartial');
+    const kpiF1 = document.getElementById('kpiF1');
+
+    // Table elements
+    const documentsTableBody = document.getElementById('documentsTableBody');
+    const tableSearch = document.getElementById('tableSearch');
+    const tableFilter = document.getElementById('tableFilter');
+    const btnPrevPage = document.getElementById('btnPrevPage');
+    const btnNextPage = document.getElementById('btnNextPage');
+    const pageIndicator = document.getElementById('pageIndicator');
+    const tableInfo = document.getElementById('tableInfo');
+
+    // Modal elements
+    const docDetailModal = document.getElementById('docDetailModal');
+    const modalDocId = document.getElementById('modalDocId');
+    const modalCommonBadges = document.getElementById('modalCommonBadges');
+    const modalAddedBadges = document.getElementById('modalAddedBadges');
+    const modalRemovedBadges = document.getElementById('modalRemovedBadges');
+    const modalPartialContainer = document.getElementById('modalPartialContainer');
+
+    // 1. CONNECT & PREVIEW
+    connectForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      btnConnect.disabled = true;
+      btnConnect.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> <span>Connecting...</span>`;
+
+      try {
+        const payload = {
+          mongo_uri: mongoUriInput.value.trim(),
+          database: databaseInput.value.trim(),
+          collection: collectionInput.value.trim()
+        };
+
+        // Call connect endpoint
+        const connRes = await fetch('/api/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!connRes.ok) {
+          const err = await connRes.json();
+          throw new Error(err.detail || 'Failed to connect to MongoDB');
+        }
+
+        const connData = await connRes.json();
+        
+        // Update DB / Collection datalists
+        if (connData.databases) {
+          dbList.innerHTML = connData.databases.map(d => `<option value="${d}">`).join('');
+        }
+        if (connData.collections) {
+          colList.innerHTML = connData.collections.map(c => `<option value="${c}">`).join('');
+        }
+
+        totalDocCount.textContent = connData.total_documents || 0;
+        docCountContainer.classList.remove('hidden');
+
+        // Fetch Preview & Suggested Paths
+        const prevRes = await fetch('/api/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, sample_size: 3 })
+        });
+
+        if (prevRes.ok) {
+          const prevData = await prevRes.json();
+          state.sampleDocs = prevData.sample_documents || [];
+          state.suggestedPaths = prevData.suggested_paths || [];
+
+          sampleCount.textContent = state.sampleDocs.length;
+          previewJsonOutput.textContent = JSON.stringify(state.sampleDocs[0] || {}, null, 2);
+          previewPanel.classList.remove('hidden');
+
+          // Populate suggested paths dropdown
+          if (state.suggestedPaths.length > 0) {
+            suggestedPathsSelect.innerHTML = `<option value="">-- Choose from ${state.suggestedPaths.length} Discovered Paths --</option>` +
+              state.suggestedPaths.map(p => `<option value="${p}">${p}</option>`).join('');
+          }
+        }
+
+        // Update Connection Badge
+        connStatusBadge.className = "flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-950 text-emerald-400 border border-emerald-800";
+        connStatusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>Connected (${connData.database}.${connData.collection})</span>`;
+        state.connected = true;
+        btnRunAnalysis.disabled = false;
+
+      } catch (err) {
+        alert(err.message);
+        connStatusBadge.className = "flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium bg-rose-950 text-rose-400 border border-rose-800";
+        connStatusBadge.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-400"></span><span>Connection Failed</span>`;
+      } finally {
+        btnConnect.disabled = false;
+        btnConnect.innerHTML = `<i class="fa-solid fa-plug"></i> <span>Connect &amp; Preview</span>`;
+      }
+    });
+
+    // Toggle Preview Accordion
+    togglePreviewBtn.addEventListener('click', () => {
+      const isHidden = previewContent.classList.toggle('hidden');
+      previewChevron.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(180deg)';
+    });
+
+    // Suggested Path Select Change
+    suggestedPathsSelect.addEventListener('change', (e) => {
+      if (e.target.value) {
+        targetPathInput.value = e.target.value;
+      }
+    });
+
+    // 2. RUN FULL PIPELINE (Diff -> Path Analysis -> Metrics)
+    btnRunAnalysis.addEventListener('click', async () => {
+      const path = targetPathInput.value.trim();
+      if (!path) {
+        alert('Please enter a target JSON path');
+        return;
+      }
+
+      btnRunAnalysis.disabled = true;
+      loadingProgress.classList.remove('hidden');
+      resultsSection.classList.add('hidden');
+
+      try {
+        const payload = {
+          mongo_uri: mongoUriInput.value.trim(),
+          database: databaseInput.value.trim(),
+          collection: collectionInput.value.trim(),
+          path: path
+        };
+
+        const res = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.detail || 'Analysis pipeline failed');
+        }
+
+        const data = await res.json();
+        state.currentAnalysis = data;
+        state.tableData = data.documents || [];
+        state.currentPage = 1;
+
+        // Render Dashboard
+        renderDashboard(data);
+
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        btnRunAnalysis.disabled = false;
+        loadingProgress.classList.add('hidden');
+      }
+    });
+
+    // 3. RENDER DASHBOARD
+    function renderDashboard(data) {
+      resultsSection.classList.remove('hidden');
+      resPathTag.textContent = data.path;
+
+      // Summary KPIs
+      const sum = data.summary;
+      kpiTotalDocs.textContent = sum.total_documents.toLocaleString();
+      kpiCommon.textContent = sum.total_common.toLocaleString();
+      kpiAdded.textContent = sum.total_added.toLocaleString();
+      kpiRemoved.textContent = sum.total_removed.toLocaleString();
+      kpiPartial.textContent = sum.total_partial.toLocaleString();
+      kpiF1.textContent = `${sum.macro_f1}%`;
+
+      // Render Charts
+      renderCategoryChart(data.chart_data.categories_distribution);
+      renderTokensChart(data.chart_data.top_added_tokens, data.chart_data.top_removed_tokens);
+
+      // Render Table
+      renderTable();
+
+      // Scroll smoothly to results
+      resultsSection.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // 4. CHART RENDERING (Chart.js)
+    function renderCategoryChart(dist) {
+      const ctx = document.getElementById('categoryChart').getContext('2d');
+      if (state.charts.category) state.charts.category.destroy();
+
+      const labels = Object.keys(dist);
+      const values = Object.values(dist);
+
+      state.charts.category = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: values,
+            backgroundColor: [
+              '#22c55e', // emerald (common)
+              '#3b82f6', // blue (added)
+              '#f43f5e', // rose (removed)
+              '#f59e0b', // amber (partial)
+              '#64748b'  // slate (empty)
+            ],
+            borderColor: '#1e293b',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#94a3b8', font: { size: 11 }, padding: 12 }
+            }
+          },
+          cutout: '68%'
+        }
+      });
+    }
+
+    function renderTokensChart(addedTokens, removedTokens) {
+      const ctx = document.getElementById('tokensChart').getContext('2d');
+      if (state.charts.tokens) state.charts.tokens.destroy();
+
+      const allTokens = Array.from(new Set([
+        ...addedTokens.map(t => t.token),
+        ...removedTokens.map(t => t.token)
+      ])).slice(0, 8);
+
+      const addedMap = Object.fromEntries(addedTokens.map(t => [t.token, t.count]));
+      const removedMap = Object.fromEntries(removedTokens.map(t => [t.token, t.count]));
+
+      state.charts.tokens = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: allTokens.length > 0 ? allTokens : ['No Token Changes'],
+          datasets: [
+            {
+              label: 'Added in V3',
+              data: allTokens.map(t => addedMap[t] || 0),
+              backgroundColor: '#3b82f6',
+              borderRadius: 6
+            },
+            {
+              label: 'Removed in V3',
+              data: allTokens.map(t => removedMap[t] || 0),
+              backgroundColor: '#f43f5e',
+              borderRadius: 6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#334155' } }
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: { color: '#cbd5e1', font: { size: 11 } }
+            }
+          }
+        }
+      });
+    }
+
+    // 5. TABLE RENDERING & FILTERING
+    function getFilteredData() {
+      const search = tableSearch.value.trim().toLowerCase();
+      const filter = tableFilter.value;
+
+      return state.tableData.filter(doc => {
+        const matchesSearch = !search || doc.document_id.toLowerCase().includes(search);
+        let matchesFilter = true;
+        if (filter === 'modified') {
+          matchesFilter = (doc.added_count > 0 || doc.removed_count > 0 || doc.partial_count > 0);
+        } else if (filter === 'exact') {
+          matchesFilter = (doc.added_count === 0 && doc.removed_count === 0 && doc.common_count > 0);
+        } else if (filter === 'partial') {
+          matchesFilter = (doc.partial_count > 0);
+        }
+        return matchesSearch && matchesFilter;
+      });
+    }
+
+    function renderTable() {
+      const filtered = getFilteredData();
+      const totalPages = Math.ceil(filtered.length / state.pageSize) || 1;
+      if (state.currentPage > totalPages) state.currentPage = totalPages;
+
+      const start = (state.currentPage - 1) * state.pageSize;
+      const end = start + state.pageSize;
+      const pageRows = filtered.slice(start, end);
+
+      tableInfo.textContent = `Showing ${filtered.length === 0 ? 0 : start + 1}-${Math.min(end, filtered.length)} of ${filtered.length} documents`;
+      pageIndicator.textContent = `${state.currentPage} / ${totalPages}`;
+      btnPrevPage.disabled = (state.currentPage <= 1);
+      btnNextPage.disabled = (state.currentPage >= totalPages);
+
+      if (pageRows.length === 0) {
+        documentsTableBody.innerHTML = `<tr><td colspan="8" class="text-center p-8 text-slate-500">No matching documents found</td></tr>`;
+        return;
+      }
+
+      documentsTableBody.innerHTML = pageRows.map(doc => {
+        const isExact = (doc.added_count === 0 && doc.removed_count === 0 && doc.common_count > 0);
+        const badgeClass = isExact ? "text-emerald-400 bg-emerald-950/60 border-emerald-800" : "text-slate-300 bg-slate-800 border-slate-700";
+
+        return `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="p-3.5 pl-5 font-mono text-emerald-300 font-medium">${doc.document_id}</td>
+            <td class="p-3.5 text-center font-mono">${doc.v1_count}</td>
+            <td class="p-3.5 text-center font-mono">${doc.v3_count}</td>
+            <td class="p-3.5 text-center font-mono text-emerald-400 font-semibold">${doc.common_count}</td>
+            <td class="p-3.5 text-center font-mono ${doc.added_count > 0 ? 'text-blue-400 font-bold' : 'text-slate-500'}">${doc.added_count}</td>
+            <td class="p-3.5 text-center font-mono ${doc.removed_count > 0 ? 'text-rose-400 font-bold' : 'text-slate-500'}">${doc.removed_count}</td>
+            <td class="p-3.5 text-center font-mono ${doc.partial_count > 0 ? 'text-amber-400 font-bold' : 'text-slate-500'}">${doc.partial_count}</td>
+            <td class="p-3.5 pr-5 text-right">
+              <button onclick="openDocModal('${doc.document_id}')" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-bordercol px-2.5 py-1 rounded-lg transition text-[11px] font-medium">
+                <i class="fa-solid fa-eye"></i> View
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    tableSearch.addEventListener('input', () => { state.currentPage = 1; renderTable(); });
+    tableFilter.addEventListener('change', () => { state.currentPage = 1; renderTable(); });
+    btnPrevPage.addEventListener('click', () => { if (state.currentPage > 1) { state.currentPage--; renderTable(); } });
+    btnNextPage.addEventListener('click', () => { state.currentPage++; renderTable(); });
+
+    // 6. MODAL INSPECTION
+    window.openDocModal = function(docId) {
+      const doc = state.tableData.find(d => d.document_id === docId);
+      if (!doc) return;
+
+      modalDocId.textContent = `ID: ${doc.document_id}`;
+
+      // Common badges
+      modalCommonBadges.innerHTML = doc.common.length > 0
+        ? doc.common.map(c => `<span class="px-2 py-0.5 rounded-md bg-emerald-950 text-emerald-300 border border-emerald-800 text-xs font-mono">${c}</span>`).join('')
+        : `<span class="text-xs text-slate-500 italic">No common tokens</span>`;
+
+      // Added badges
+      modalAddedBadges.innerHTML = doc.added.length > 0
+        ? doc.added.map(a => `<span class="px-2 py-0.5 rounded-md bg-blue-950 text-blue-300 border border-blue-800 text-xs font-mono">${a}</span>`).join('')
+        : `<span class="text-xs text-slate-500 italic">None added</span>`;
+
+      // Removed badges
+      modalRemovedBadges.innerHTML = doc.removed.length > 0
+        ? doc.removed.map(r => `<span class="px-2 py-0.5 rounded-md bg-rose-950 text-rose-300 border border-rose-800 text-xs font-mono">${r}</span>`).join('')
+        : `<span class="text-xs text-slate-500 italic">None removed</span>`;
+
+      // Partial items
+      modalPartialContainer.innerHTML = doc.partial && doc.partial.length > 0
+        ? doc.partial.map(p => `
+          <div class="p-2.5 rounded-lg bg-slate-950/80 border border-amber-900/50 flex flex-col gap-1 text-xs">
+            <span class="text-[10px] text-slate-500 font-mono">${p.path}</span>
+            <div class="flex items-center gap-3">
+              <div class="flex-1 bg-rose-950/40 p-1.5 rounded border border-rose-900/40 text-rose-300 font-mono"><span class="text-[10px] text-rose-400 block font-sans">Old (V1):</span>${p.old}</div>
+              <i class="fa-solid fa-arrow-right text-slate-600 text-xs"></i>
+              <div class="flex-1 bg-blue-950/40 p-1.5 rounded border border-blue-900/40 text-blue-300 font-mono"><span class="text-[10px] text-blue-400 block font-sans">New (V3):</span>${p.new}</div>
+            </div>
+          </div>
+        `).join('')
+        : `<span class="text-xs text-slate-500 italic">No partial matches</span>`;
+
+      docDetailModal.classList.remove('hidden');
+    };
+
+    const closeModal = () => docDetailModal.classList.add('hidden');
+    document.getElementById('closeModalBtn').addEventListener('click', closeModal);
+    document.getElementById('closeModalFooterBtn').addEventListener('click', closeModal);
+    docDetailModal.addEventListener('click', (e) => { if (e.target === docDetailModal) closeModal(); });
+
+    // 7. EXPORT ACTIONS
+    document.getElementById('btnExportCsv').addEventListener('click', async () => {
+      const payload = {
+        mongo_uri: mongoUriInput.value.trim(),
+        database: databaseInput.value.trim(),
+        collection: collectionInput.value.trim(),
+        path: targetPathInput.value.trim()
+      };
+
+      const res = await fetch('/api/export/csv', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `parser_metrics_${payload.collection}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      }
+    });
+
+    document.getElementById('btnExportJson').addEventListener('click', () => {
+      if (!state.currentAnalysis) return;
+      const blob = new Blob([JSON.stringify(state.currentAnalysis, null, 2)], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `parser_analytics_${collectionInput.value.trim()}.json`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>
