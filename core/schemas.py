@@ -1,6 +1,7 @@
 from typing import Any, List, Optional, Dict
 from pydantic import BaseModel, Field
 
+"""This module defines Pydantic models for request and response schemas used in the application."""
 class MongoConnectionRequest(BaseModel):
     mongo_uri: str = Field(..., description="MongoDB connection URI")
     database: str = Field(..., description="Database name")
@@ -19,7 +20,8 @@ class DocumentPreviewRequest(BaseModel):
     database: str = Field(..., description="Database name")
     collection: str = Field(..., description="Collection name")
     sample_size: int = Field(default=5, ge=1, le=50)
-
+    
+"""limits the number of sample documents to retrieve, must be between 1 and 50"""
 class DocumentPreviewResponse(BaseModel):
     total_count: int
     sample_documents: List[Dict[str, Any]]

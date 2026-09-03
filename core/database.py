@@ -1,7 +1,6 @@
 from typing import List, Tuple
 from pymongo import MongoClient
 from pymongo.collection import Collection
-from uuid import uuid4
 
 _client_cache: dict[str, MongoClient] = {}
 
