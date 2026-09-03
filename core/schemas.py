@@ -21,7 +21,19 @@ class DocumentPreviewRequest(BaseModel):
     collection: str = Field(..., description="Collection name")
     sample_size: int = Field(default=5, ge=1, le=50)
     
-"""limits the number of sample documents to retrieve, must be between 1 and 50"""
+class PathValuesSummary(BaseModel):
+    path: str
+    total_v1_values_count: int = 0
+    total_v3_values_count: int = 0
+    common_values_count: int = 0
+    added_values_count: int = 0
+    removed_values_count: int = 0
+    v1_values: List[str] = Field(default_factory=list)
+    v3_values: List[str] = Field(default_factory=list)
+    common_values: List[str] = Field(default_factory=list)
+    added_values: List[str] = Field(default_factory=list)
+    removed_values: List[str] = Field(default_factory=list)
+
 class DocumentPreviewResponse(BaseModel):
     total_count: int
     sample_documents: List[Dict[str, Any]]
@@ -82,3 +94,5 @@ class AnalyzePathResponse(BaseModel):
     chart_data: ChartData
     documents: List[DocumentMetricItem]
     raw_categories: Optional[List[CategoryItem]] = None
+    path_values_summary: Optional[PathValuesSummary] = None
+

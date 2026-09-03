@@ -196,6 +196,9 @@
           <p class="text-xs text-slate-400 mt-0.5">Calculated across all collection documents using unified in-memory pipeline</p>
         </div>
         <div class="flex items-center space-x-2">
+          <button id="btnViewPathValues" type="button" class="text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 px-3.5 py-2 rounded-xl transition flex items-center gap-1.5 font-medium shadow-sm">
+            <i class="fa-solid fa-code-compare text-amber-400"></i> Path Values Set Comparison
+          </button>
           <button id="btnExportCsv" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border border-bordercol px-3.5 py-2 rounded-xl transition flex items-center gap-1.5">
             <i class="fa-solid fa-file-csv text-emerald-400"></i> Export CSV
           </button>
@@ -391,10 +394,122 @@
           <div id="modalPartialContainer" class="space-y-2 p-3 rounded-xl bg-slate-900/90 border border-bordercol min-h-[44px]">
           </div>
         </div>
+
       </div>
 
       <div class="p-3 border-t border-bordercol bg-slate-900/60 flex justify-end">
         <button id="closeModalFooterBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-1.5 rounded-xl text-xs font-medium transition">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: PATH VALUES SET COMPARISON (V1 vs V3) -->
+  <div id="pathValuesModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-cardbg border border-bordercol rounded-2xl w-full max-w-5xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-fade-in">
+      <!-- Modal Header -->
+      <div class="p-4 border-b border-bordercol flex items-center justify-between bg-slate-900/70">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+            <i class="fa-solid fa-code-compare"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-sm text-slate-100 flex items-center gap-2">
+              Path Values Set Comparison (V1 vs V3)
+            </h3>
+            <p class="text-xs text-slate-400 font-mono" id="pathValuesModalSubtitle">Target Path Values Parity Analysis</p>
+          </div>
+        </div>
+        <button id="closePathValuesModalBtn" class="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-6 space-y-5 overflow-y-auto flex-1">
+        <!-- KPI Cards Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div class="bg-slate-900/80 border border-bordercol rounded-xl p-3 flex flex-col">
+            <span class="text-[11px] font-medium text-slate-400">Total Unique V1 Values</span>
+            <span id="kpiValTotalV1" class="text-xl font-bold font-mono text-slate-200 mt-1">0</span>
+            <span class="text-[10px] text-slate-500 mt-0.5">Distinct in V1</span>
+          </div>
+          <div class="bg-slate-900/80 border border-bordercol rounded-xl p-3 flex flex-col">
+            <span class="text-[11px] font-medium text-slate-400">Total Unique V3 Values</span>
+            <span id="kpiValTotalV3" class="text-xl font-bold font-mono text-emerald-400 mt-1">0</span>
+            <span class="text-[10px] text-slate-500 mt-0.5">Distinct in V3</span>
+          </div>
+          <div class="bg-slate-900/80 border border-bordercol rounded-xl p-3 flex flex-col">
+            <span class="text-[11px] font-medium text-emerald-400">Common Values (V1 &amp; V3)</span>
+            <span id="kpiValCommon" class="text-xl font-bold font-mono text-emerald-300 mt-1">0</span>
+            <span class="text-[10px] text-emerald-500/80 mt-0.5">Matches in both</span>
+          </div>
+          <div class="bg-slate-900/80 border border-bordercol rounded-xl p-3 flex flex-col">
+            <span class="text-[11px] font-medium text-blue-400">Added in V3 (V3 - V1)</span>
+            <span id="kpiValAddedV3" class="text-xl font-bold font-mono text-blue-300 mt-1">0</span>
+            <span class="text-[10px] text-blue-500/80 mt-0.5">New values captured</span>
+          </div>
+          <div class="bg-slate-900/80 border border-bordercol rounded-xl p-3 flex flex-col">
+            <span class="text-[11px] font-medium text-rose-400">Removed in V3 (V1 - V3)</span>
+            <span id="kpiValRemovedV3" class="text-xl font-bold font-mono text-rose-300 mt-1">0</span>
+            <span class="text-[10px] text-rose-500/80 mt-0.5">V1 values missing</span>
+          </div>
+        </div>
+
+        <!-- Filter & Search Controls -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+          <!-- Filter Tabs -->
+          <div class="flex flex-wrap items-center gap-1.5 p-1 bg-slate-900/90 rounded-xl border border-bordercol text-xs" id="valTabsContainer">
+            <button type="button" data-tab="added" class="val-tab-btn px-3 py-1.5 rounded-lg font-medium transition bg-amber-600 text-white shadow-sm flex items-center gap-1.5">
+              <span>Added in V3</span>
+              <span id="tabValBadgeAdded" class="px-1.5 py-0.2 rounded-full bg-slate-900/60 text-amber-200 text-[10px] font-mono">0</span>
+            </button>
+            <button type="button" data-tab="removed" class="val-tab-btn px-3 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center gap-1.5">
+              <span>Removed in V3</span>
+              <span id="tabValBadgeRemoved" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-rose-400 text-[10px] font-mono">0</span>
+            </button>
+            <button type="button" data-tab="common" class="val-tab-btn px-3 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center gap-1.5">
+              <span>Common Values</span>
+              <span id="tabValBadgeCommon" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-emerald-400 text-[10px] font-mono">0</span>
+            </button>
+            <button type="button" data-tab="allV3" class="val-tab-btn px-3 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center gap-1.5">
+              <span>All V3 Values</span>
+              <span id="tabValBadgeAllV3" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 text-[10px] font-mono">0</span>
+            </button>
+            <button type="button" data-tab="allV1" class="val-tab-btn px-3 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center gap-1.5">
+              <span>All V1 Values</span>
+              <span id="tabValBadgeAllV1" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 text-[10px] font-mono">0</span>
+            </button>
+          </div>
+
+          <!-- Search Input & Copy Button -->
+          <div class="flex items-center gap-2">
+            <div class="relative flex-1 sm:w-64">
+              <input type="text" id="valSearchInput" placeholder="Filter values..."
+                class="w-full bg-slate-900 border border-bordercol rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500 transition font-mono" />
+              <i class="fa-solid fa-search absolute left-2.5 top-2 text-slate-500 text-xs"></i>
+            </div>
+            <button type="button" id="btnCopyValList" title="Copy visible values to clipboard"
+              class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-bordercol px-2.5 py-1.5 rounded-xl transition text-xs flex items-center gap-1.5">
+              <i class="fa-solid fa-copy"></i>
+              <span class="hidden sm:inline">Copy</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Values List Container -->
+        <div class="bg-slate-900/90 rounded-xl border border-bordercol p-3 min-h-[220px] max-h-[380px] overflow-y-auto">
+          <div id="valuesListOutput" class="space-y-1 font-mono text-xs">
+            <!-- Rendered list of values -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-3 border-t border-bordercol bg-slate-900/60 flex items-center justify-between text-xs text-slate-400">
+        <span id="valuesCountIndicator">Showing 0 values</span>
+        <button id="closePathValuesModalFooterBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-1.5 rounded-xl text-xs font-medium transition">
           Close
         </button>
       </div>
@@ -412,7 +527,9 @@
       tableData: [],
       currentPage: 1,
       pageSize: 10,
-      charts: { category: null, tokens: null }
+      charts: { category: null, tokens: null },
+      activeValTab: 'added',
+      valFilterQuery: ''
     };
 
     // DOM Elements
@@ -437,6 +554,7 @@
     const loadingProgress = document.getElementById('loadingProgress');
     const resultsSection = document.getElementById('resultsSection');
     const resPathTag = document.getElementById('resPathTag');
+    const btnViewPathValues = document.getElementById('btnViewPathValues');
     const dbList = document.getElementById('dbList');
     const colList = document.getElementById('colList');
 
@@ -457,13 +575,34 @@
     const pageIndicator = document.getElementById('pageIndicator');
     const tableInfo = document.getElementById('tableInfo');
 
-    // Modal elements
+    // Modal elements: Document details
     const docDetailModal = document.getElementById('docDetailModal');
     const modalDocId = document.getElementById('modalDocId');
     const modalCommonBadges = document.getElementById('modalCommonBadges');
     const modalAddedBadges = document.getElementById('modalAddedBadges');
     const modalRemovedBadges = document.getElementById('modalRemovedBadges');
     const modalPartialContainer = document.getElementById('modalPartialContainer');
+
+    // Modal elements: Path values comparison
+    const pathValuesModal = document.getElementById('pathValuesModal');
+    const closePathValuesModalBtn = document.getElementById('closePathValuesModalBtn');
+    const closePathValuesModalFooterBtn = document.getElementById('closePathValuesModalFooterBtn');
+    const pathValuesModalSubtitle = document.getElementById('pathValuesModalSubtitle');
+    const kpiValTotalV1 = document.getElementById('kpiValTotalV1');
+    const kpiValTotalV3 = document.getElementById('kpiValTotalV3');
+    const kpiValCommon = document.getElementById('kpiValCommon');
+    const kpiValAddedV3 = document.getElementById('kpiValAddedV3');
+    const kpiValRemovedV3 = document.getElementById('kpiValRemovedV3');
+    const valTabsContainer = document.getElementById('valTabsContainer');
+    const tabValBadgeAdded = document.getElementById('tabValBadgeAdded');
+    const tabValBadgeRemoved = document.getElementById('tabValBadgeRemoved');
+    const tabValBadgeCommon = document.getElementById('tabValBadgeCommon');
+    const tabValBadgeAllV3 = document.getElementById('tabValBadgeAllV3');
+    const tabValBadgeAllV1 = document.getElementById('tabValBadgeAllV1');
+    const valSearchInput = document.getElementById('valSearchInput');
+    const btnCopyValList = document.getElementById('btnCopyValList');
+    const valuesListOutput = document.getElementById('valuesListOutput');
+    const valuesCountIndicator = document.getElementById('valuesCountIndicator');
 
     // 1. CONNECT & PREVIEW
     connectForm.addEventListener('submit', async (e) => {
@@ -823,6 +962,135 @@
     document.getElementById('closeModalBtn').addEventListener('click', closeModal);
     document.getElementById('closeModalFooterBtn').addEventListener('click', closeModal);
     docDetailModal.addEventListener('click', (e) => { if (e.target === docDetailModal) closeModal(); });
+
+    // PATH VALUES SET COMPARISON MODAL LOGIC
+    function openPathValuesModal() {
+      if (!state.currentAnalysis || !state.currentAnalysis.path_values_summary) {
+        alert('Please run path analysis first to inspect path values parity.');
+        return;
+      }
+      const summary = state.currentAnalysis.path_values_summary;
+      pathValuesModalSubtitle.textContent = `Target Path: ${summary.path || state.currentAnalysis.path}`;
+
+      kpiValTotalV1.textContent = (summary.total_v1_values_count || 0).toLocaleString();
+      kpiValTotalV3.textContent = (summary.total_v3_values_count || 0).toLocaleString();
+      kpiValCommon.textContent = (summary.common_values_count || 0).toLocaleString();
+      kpiValAddedV3.textContent = (summary.added_values_count || 0).toLocaleString();
+      kpiValRemovedV3.textContent = (summary.removed_values_count || 0).toLocaleString();
+
+      tabValBadgeAdded.textContent = (summary.added_values || []).length;
+      tabValBadgeRemoved.textContent = (summary.removed_values || []).length;
+      tabValBadgeCommon.textContent = (summary.common_values || []).length;
+      tabValBadgeAllV3.textContent = (summary.v3_values || []).length;
+      tabValBadgeAllV1.textContent = (summary.v1_values || []).length;
+
+      state.activeValTab = 'added';
+      state.valFilterQuery = '';
+      valSearchInput.value = '';
+      updateActiveValTab();
+      renderValList();
+
+      pathValuesModal.classList.remove('hidden');
+    }
+
+    function updateActiveValTab() {
+      document.querySelectorAll('.val-tab-btn').forEach(btn => {
+        const tab = btn.getAttribute('data-tab');
+        if (tab === state.activeValTab) {
+          btn.className = 'val-tab-btn px-3 py-1.5 rounded-lg font-medium transition bg-amber-600 text-white shadow-sm flex items-center gap-1.5';
+        } else {
+          btn.className = 'val-tab-btn px-3 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center gap-1.5';
+        }
+      });
+    }
+
+    function renderValList() {
+      if (!state.currentAnalysis || !state.currentAnalysis.path_values_summary) return;
+      const summary = state.currentAnalysis.path_values_summary;
+
+      let list = [];
+      switch (state.activeValTab) {
+        case 'added':
+          list = summary.added_values || [];
+          break;
+        case 'removed':
+          list = summary.removed_values || [];
+          break;
+        case 'common':
+          list = summary.common_values || [];
+          break;
+        case 'allV3':
+          list = summary.v3_values || [];
+          break;
+        case 'allV1':
+          list = summary.v1_values || [];
+          break;
+      }
+
+      const query = state.valFilterQuery.toLowerCase().trim();
+      const filtered = query ? list.filter(v => v.toLowerCase().includes(query)) : list;
+
+      valuesCountIndicator.textContent = `Showing ${filtered.length} of ${list.length} values`;
+
+      if (filtered.length === 0) {
+        valuesListOutput.innerHTML = `<div class="text-xs text-slate-500 italic p-3 text-center">No values found in this category.</div>`;
+        return;
+      }
+
+      valuesListOutput.innerHTML = filtered.map(v => {
+        const safeV = v.replace(/'/g, "\\'");
+        return `
+          <div class="flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-950/70 border border-bordercol hover:border-slate-700 transition">
+            <span class="text-slate-300 font-mono text-[11px] select-all">${v}</span>
+            <button type="button" onclick="navigator.clipboard.writeText('${safeV}')" title="Copy value" class="text-slate-500 hover:text-amber-400 px-1.5 py-0.5 rounded text-[10px] transition">
+              <i class="fa-regular fa-copy"></i>
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    valTabsContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('.val-tab-btn');
+      if (!btn) return;
+      state.activeValTab = btn.getAttribute('data-tab');
+      updateActiveValTab();
+      renderValList();
+    });
+
+    valSearchInput.addEventListener('input', (e) => {
+      state.valFilterQuery = e.target.value;
+      renderValList();
+    });
+
+    btnCopyValList.addEventListener('click', () => {
+      if (!state.currentAnalysis || !state.currentAnalysis.path_values_summary) return;
+      const summary = state.currentAnalysis.path_values_summary;
+      let list = [];
+      switch (state.activeValTab) {
+        case 'added': list = summary.added_values || []; break;
+        case 'removed': list = summary.removed_values || []; break;
+        case 'common': list = summary.common_values || []; break;
+        case 'allV3': list = summary.v3_values || []; break;
+        case 'allV1': list = summary.v1_values || []; break;
+      }
+      const query = state.valFilterQuery.toLowerCase().trim();
+      const filtered = query ? list.filter(v => v.toLowerCase().includes(query)) : list;
+      if (filtered && filtered.length > 0) {
+        navigator.clipboard.writeText(filtered.join('\n'));
+        btnCopyValList.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> Copied!`;
+        setTimeout(() => {
+          btnCopyValList.innerHTML = `<i class="fa-solid fa-copy"></i> <span class="hidden sm:inline">Copy</span>`;
+        }, 2000);
+      }
+    });
+
+    const closePathValuesModal = () => pathValuesModal.classList.add('hidden');
+    closePathValuesModalBtn.addEventListener('click', closePathValuesModal);
+    closePathValuesModalFooterBtn.addEventListener('click', closePathValuesModal);
+    pathValuesModal.addEventListener('click', (e) => { if (e.target === pathValuesModal) closePathValuesModal(); });
+
+    btnViewPathValues.addEventListener('click', openPathValuesModal);
 
     // 7. EXPORT ACTIONS
     document.getElementById('btnExportCsv').addEventListener('click', async () => {

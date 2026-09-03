@@ -10,6 +10,7 @@ from core.schemas import (
     ChartData,
     DocumentMetricItem,
     OverallMetricsSummary,
+    PathValuesSummary,
 )
 
 def walk_json_path(data: Any, path: str) -> List[Tuple[str, Any]]:
@@ -84,6 +85,122 @@ def discover_paths(data: Any, max_depth: int = 5) -> Set[str]:
     traverse(data, "root", 0)
     return discovered
 
+def path_to_dot_notation(path: str) -> str:
+    """Converts root['details']['locations'][*]['text'] to details.locations[*].text."""
+    s = re.sub(r"^root\['([^']+)'\]", r"\1", path)
+    s = re.sub(r"\['([^']+)'\]", r".\1", s)
+    s = re.sub(r"^root", "", s)
+    return s.lstrip(".")
+
+def extract_keys_from_json(
+    data: Any,
+    current_path: str = "root",
+    max_depth: int = 25
+) -> Tuple[List[str], Set[str], Set[str]]:
+    """
+    Traverses a JSON structure and returns:
+    - occurrences: list of all key path occurrences
+    - unique_paths: set of distinct key paths
+    - raw_keys: set of distinct unqualified key names
+    """
+    occurrences = []
+    unique_paths = set()
+    raw_keys = set()
+
+    def traverse(val: Any, path: str, depth: int):
+        if depth > max_depth:
+            return
+        if isinstance(val, dict):
+            for k, v in val.items():
+                p = f"{path}['{k}']"
+                occurrences.append(p)
+                unique_paths.add(p)
+                raw_keys.add(k)
+                traverse(v, p, depth + 1)
+        elif isinstance(val, list):
+            for item in val:
+                traverse(item, f"{path}[*]", depth + 1)
+
+    traverse(data, current_path, 0)
+    return occurrences, unique_paths, raw_keys
+
+def compute_path_values_comparison(
+    documents: List[Dict[str, Any]],
+    path: str
+) -> Tuple[PathValuesSummary, Dict[str, Dict[str, Any]]]:
+    """
+    Computes set operations for the specific path (key) across documents:
+    - Extracts all values for the path directly from parserResponseV1 and parserResponseV3
+    - Performs set operations per document: v1_values, v3_values, common, added, removed
+    - Performs set operations across the entire dataset:
+      - All V1 values for that key
+      - All V3 values for that key
+      - Common values (V1 & V3)
+      - Added values (V3 - V1)
+      - Removed values (V1 - V3)
+    """
+    global_v1_set: Set[str] = set()
+    global_v3_set: Set[str] = set()
+    doc_values_map: Dict[str, Dict[str, Any]] = {}
+
+    for doc in documents:
+        doc_id = str(doc["_id"])
+        v1 = doc.get("parserResponseV1", {}).get("parserJson", {})
+        v3 = doc.get("parserResponseV3", {}).get("parserJson", {})
+
+        v1_extracted = walk_json_path(v1, path)
+        v3_extracted = walk_json_path(v3, path)
+
+        doc_v1: Set[str] = set()
+        for _, val in v1_extracted:
+            if not is_empty(val):
+                s = str(val).strip().lower()
+                if s and s != "nan":
+                    doc_v1.add(s)
+
+        doc_v3: Set[str] = set()
+        for _, val in v3_extracted:
+            if not is_empty(val):
+                s = str(val).strip().lower()
+                if s and s != "nan":
+                    doc_v3.add(s)
+
+        doc_common = sorted(list(doc_v1 & doc_v3))
+        doc_added = sorted(list(doc_v3 - doc_v1))
+        doc_removed = sorted(list(doc_v1 - doc_v3))
+
+        global_v1_set.update(doc_v1)
+        global_v3_set.update(doc_v3)
+
+        doc_values_map[doc_id] = {
+            "v1_values": sorted(list(doc_v1)),
+            "v3_values": sorted(list(doc_v3)),
+            "common": doc_common,
+            "added": doc_added,
+            "removed": doc_removed,
+        }
+
+    global_v1 = sorted(list(global_v1_set))
+    global_v3 = sorted(list(global_v3_set))
+    global_common = sorted(list(global_v1_set & global_v3_set))
+    global_added = sorted(list(global_v3_set - global_v1_set))
+    global_removed = sorted(list(global_v1_set - global_v3_set))
+
+    summary = PathValuesSummary(
+        path=path,
+        total_v1_values_count=len(global_v1),
+        total_v3_values_count=len(global_v3),
+        common_values_count=len(global_common),
+        added_values_count=len(global_added),
+        removed_values_count=len(global_removed),
+        v1_values=global_v1,
+        v3_values=global_v3,
+        common_values=global_common,
+        added_values=global_added,
+        removed_values=global_removed,
+    )
+    return summary, doc_values_map
+
 class ParserAnalyticsService:
 
     @staticmethod
@@ -125,6 +242,9 @@ class ParserAnalyticsService:
         documents = ParserAnalyticsService.fetch_documents(mongo_uri, database, collection, limit)
         if not documents:
             raise ValueError(f"No documents found in collection '{collection}'.")
+
+        # Step 0: In-Memory Path Value Set Analysis (Target path only)
+        path_values_summary, doc_values_map = compute_path_values_comparison(documents, path)
 
         # Step 1: DeepDiff in-memory computation
         diff_collection_data: List[Dict[str, Any]] = []
@@ -234,29 +354,21 @@ class ParserAnalyticsService:
             doc_id = doc["_id"]
             items = doc_categories_map.get(doc_id, [])
             
-            v1_set: Set[str] = set()
-            v3_set: Set[str] = set()
-            partial_items: List[Dict[str, Any]] = []
+            doc_val_info = doc_values_map.get(doc_id, {})
+            v1_set = set(doc_val_info.get("v1_values", []))
+            v3_set = set(doc_val_info.get("v3_values", []))
+            common = doc_val_info.get("common", [])
+            added = doc_val_info.get("added", [])
+            removed = doc_val_info.get("removed", [])
 
+            partial_items: List[Dict[str, Any]] = []
             for it in items:
-                old_str = str(it["old_value"]).strip().lower() if not is_empty(it["old_value"]) else ""
-                new_str = str(it["new_value"]).strip().lower() if not is_empty(it["new_value"]) else ""
-                
-                if old_str and old_str != "nan":
-                    v1_set.add(old_str)
-                if new_str and new_str != "nan":
-                    v3_set.add(new_str)
-                
                 if it["category"] == "partial":
                     partial_items.append({
                         "old": it["old_value"],
                         "new": it["new_value"],
                         "path": it["path"]
                     })
-
-            common = sorted(list(v1_set & v3_set))
-            added = sorted(list(v3_set - v1_set))
-            removed = sorted(list(v1_set - v3_set))
             
             p_count = sum(1 for it in items if it["category"] == "partial")
             e_count = sum(1 for it in items if it["category"] == "empty")
@@ -354,5 +466,6 @@ class ParserAnalyticsService:
             summary=summary,
             chart_data=chart_data,
             documents=doc_metric_items,
-            raw_categories=raw_categories[:200]  # sample for inspector
+            raw_categories=raw_categories[:200],  # sample for inspector
+            path_values_summary=path_values_summary
         )
