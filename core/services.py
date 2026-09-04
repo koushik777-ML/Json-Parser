@@ -92,38 +92,6 @@ def path_to_dot_notation(path: str) -> str:
     s = re.sub(r"^root", "", s)
     return s.lstrip(".")
 
-def extract_keys_from_json(
-    data: Any,
-    current_path: str = "root",
-    max_depth: int = 25
-) -> Tuple[List[str], Set[str], Set[str]]:
-    """
-    Traverses a JSON structure and returns:
-    - occurrences: list of all key path occurrences
-    - unique_paths: set of distinct key paths
-    - raw_keys: set of distinct unqualified key names
-    """
-    occurrences = []
-    unique_paths = set()
-    raw_keys = set()
-
-    def traverse(val: Any, path: str, depth: int):
-        if depth > max_depth:
-            return
-        if isinstance(val, dict):
-            for k, v in val.items():
-                p = f"{path}['{k}']"
-                occurrences.append(p)
-                unique_paths.add(p)
-                raw_keys.add(k)
-                traverse(v, p, depth + 1)
-        elif isinstance(val, list):
-            for item in val:
-                traverse(item, f"{path}[*]", depth + 1)
-
-    traverse(data, current_path, 0)
-    return occurrences, unique_paths, raw_keys
-
 def compute_path_values_comparison(
     documents: List[Dict[str, Any]],
     path: str
