@@ -85,13 +85,6 @@ def discover_paths(data: Any, max_depth: int = 5) -> Set[str]:
     traverse(data, "root", 0)
     return discovered
 
-def path_to_dot_notation(path: str) -> str:
-    """Converts root['details']['locations'][*]['text'] to details.locations[*].text."""
-    s = re.sub(r"^root\['([^']+)'\]", r"\1", path)
-    s = re.sub(r"\['([^']+)'\]", r".\1", s)
-    s = re.sub(r"^root", "", s)
-    return s.lstrip(".")
-
 def compute_path_values_comparison(
     documents: List[Dict[str, Any]],
     path: str
