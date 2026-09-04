@@ -360,23 +360,6 @@ class ParserAnalyticsService:
                 partial=partial_items
             ))
 
-        # Global aggregate calculation
-        macro_precision = (
-            round((total_common_sum / (total_common_sum + total_added_sum)) * 100, 2)
-            if (total_common_sum + total_added_sum) > 0 else 0.0
-        )
-        macro_recall = (
-            round((total_common_sum / (total_common_sum + total_removed_sum)) * 100, 2)
-            if (total_common_sum + total_removed_sum) > 0 else 0.0
-        )
-        macro_f1 = (
-            round((2 * (macro_precision * macro_recall) / (macro_precision + macro_recall)), 2)
-            if (macro_precision + macro_recall) > 0 else 0.0
-        )
-        jaccard = (
-            round((total_common_sum / (total_common_sum + total_added_sum + total_removed_sum)) * 100, 2)
-            if (total_common_sum + total_added_sum + total_removed_sum) > 0 else 0.0
-        )
 
         summary = OverallMetricsSummary(
             total_documents=len(documents),
@@ -387,10 +370,6 @@ class ParserAnalyticsService:
             total_removed=total_removed_sum,
             total_partial=total_partial_sum,
             total_empty=total_empty_sum,
-            macro_precision=macro_precision,
-            macro_recall=macro_recall,
-            macro_f1=macro_f1,
-            jaccard_similarity=jaccard
         )
 
         # Top tokens for charts
