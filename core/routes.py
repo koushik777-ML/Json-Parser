@@ -94,7 +94,7 @@ def analyze_path_endpoint(req: AnalyzePathRequest):
             detail=f"Analysis failed: {exc}"
         )
 
-@router.post("/export/csv")
+@router.post("/export/csv",include_in_schema=False)
 def export_csv(req: AnalyzePathRequest):
     try:
         response = ParserAnalyticsService.analyze_pipeline(
