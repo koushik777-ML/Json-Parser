@@ -64,7 +64,6 @@ def normalize_path(path: str) -> str:
     return re.sub(r"\[\d+\]", "[*]", path)
 
 def discover_paths(data: Any, max_depth: int = 5) -> Set[str]:
-    """Recursively discovers distinct wildcard JSON paths in a JSON structure."""
     discovered = set()
 
     def traverse(val: Any, current_path: str, depth: int):
@@ -89,17 +88,6 @@ def compute_path_values_comparison(
     documents: List[Dict[str, Any]],
     path: str
 ) -> Tuple[PathValuesSummary, Dict[str, Dict[str, Any]]]:
-    """
-    Computes set operations for the specific path (key) across documents:
-    - Extracts all values for the path directly from parserResponseV1 and parserResponseV3
-    - Performs set operations per document: v1_values, v3_values, common, added, removed
-    - Performs set operations across the entire dataset:
-      - All V1 values for that key
-      - All V3 values for that key
-      - Common values (V1 & V3)
-      - Added values (V3 - V1)
-      - Removed values (V1 - V3)
-    """
     global_v1_set: Set[str] = set()
     global_v3_set: Set[str] = set()
     doc_values_map: Dict[str, Dict[str, Any]] = {}
@@ -204,10 +192,9 @@ class ParserAnalyticsService:
         if not documents:
             raise ValueError(f"No documents found in collection '{collection}'.")
 
-        # Step 0: In-Memory Path Value Set Analysis (Target path only)
         path_values_summary, doc_values_map = compute_path_values_comparison(documents, path)
 
-        # Step 1: DeepDiff in-memory computation
+
         diff_collection_data: List[Dict[str, Any]] = []
         for doc in documents:
             v1 = doc.get("parserResponseV1", {}).get("parserJson", {})
@@ -221,7 +208,6 @@ class ParserAnalyticsService:
                 "diff": diff_dict
             })
 
-        # Step 2: Path Analysis & Categorization
         normalized_target_path = normalize_path(path)
         diff_paths_set = set()
         
@@ -297,7 +283,7 @@ class ParserAnalyticsService:
                 raw_categories.append(CategoryItem(**item))
                 doc_categories_map[doc_id].append(item)
 
-        # Step 3: Metrics Computation (from final.ipynb)
+
         all_added_tokens = []
         all_removed_tokens = []
         all_common_tokens = []
@@ -360,6 +346,22 @@ class ParserAnalyticsService:
                 partial=partial_items
             ))
 
+        macro_precision = (
+            round((total_common_sum / (total_common_sum + total_added_sum)) * 100, 2)
+            if (total_common_sum + total_added_sum) > 0 else 0.0
+        )
+        macro_recall = (
+            round((total_common_sum / (total_common_sum + total_removed_sum)) * 100, 2)
+            if (total_common_sum + total_removed_sum) > 0 else 0.0
+        )
+        macro_f1 = (
+            round((2 * (macro_precision * macro_recall) / (macro_precision + macro_recall)), 2)
+            if (macro_precision + macro_recall) > 0 else 0.0
+        )
+        jaccard = (
+            round((total_common_sum / (total_common_sum + total_added_sum + total_removed_sum)) * 100, 2)
+            if (total_common_sum + total_added_sum + total_removed_sum) > 0 else 0.0
+        )
 
         summary = OverallMetricsSummary(
             total_documents=len(documents),
@@ -370,14 +372,17 @@ class ParserAnalyticsService:
             total_removed=total_removed_sum,
             total_partial=total_partial_sum,
             total_empty=total_empty_sum,
+            macro_precision=macro_precision,
+            macro_recall=macro_recall,
+            macro_f1=macro_f1,
+            jaccard_similarity=jaccard
         )
 
-        # Top tokens for charts
+
         top_added = [{"token": k, "count": v} for k, v in Counter(all_added_tokens).most_common(10)]
         top_removed = [{"token": k, "count": v} for k, v in Counter(all_removed_tokens).most_common(10)]
         top_common = [{"token": k, "count": v} for k, v in Counter(all_common_tokens).most_common(10)]
 
-        # Changes distribution per document (e.g. docs with no changes, minor changes, major changes)
         perfect_match_docs = sum(1 for d in doc_metric_items if d.added_count == 0 and d.removed_count == 0 and d.common_count > 0)
         modified_docs = sum(1 for d in doc_metric_items if d.added_count > 0 or d.removed_count > 0 or d.partial_count > 0)
         empty_docs = sum(1 for d in doc_metric_items if d.v1_count == 0 and d.v3_count == 0)
@@ -406,6 +411,6 @@ class ParserAnalyticsService:
             summary=summary,
             chart_data=chart_data,
             documents=doc_metric_items,
-            raw_categories=raw_categories[:200],  # sample for inspector
+            raw_categories=raw_categories[:200],  #
             path_values_summary=path_values_summary
         )

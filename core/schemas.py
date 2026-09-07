@@ -1,7 +1,6 @@
 from typing import Any, List, Optional, Dict
 from pydantic import BaseModel, Field
 
-"""This module defines Pydantic models for request and response schemas used in the application."""
 class MongoConnectionRequest(BaseModel):
     mongo_uri: str = Field(..., description="MongoDB connection URI")
     database: str = Field(..., description="Database name")

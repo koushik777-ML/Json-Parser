@@ -5,7 +5,6 @@ from pymongo.collection import Collection
 _client_cache: dict[str, MongoClient] = {}
 
 def get_mongo_client(mongo_uri: str) -> MongoClient:
-    """Returns a cached MongoClient or creates a new tested connection."""
     if mongo_uri in _client_cache:
         try:
             _client_cache[mongo_uri].admin.command("ping")
@@ -19,7 +18,6 @@ def get_mongo_client(mongo_uri: str) -> MongoClient:
     return client
 
 def verify_connection(mongo_uri: str, database_name: str, collection_name: str) -> Tuple[int, List[str], List[str]]:
-    """Verifies connection and returns (total_docs, all_databases, all_collections)."""
     client = get_mongo_client(mongo_uri)
     dbs = client.list_database_names()
     cols = client[database_name].list_collection_names()
