@@ -45,6 +45,36 @@ class AnalyzePathRequest(BaseModel):
     path: str = Field(..., description="Target JSON path pattern, e.g. root['details']['locations'][*]['text']")
     limit: Optional[int] = Field(default=None, description="Optional limit on number of documents to process")
 
+class OverallAnalyzeRequest(BaseModel):
+    mongo_uri: str = Field(..., description="MongoDB connection URI")
+    database: str = Field(..., description="Database name")
+    collection: str = Field(..., description="Collection name")
+    limit: Optional[int] = Field(default=None, description="Optional limit on number of documents to process")
+
+class OverallValueItem(BaseModel):
+    path: str
+    value: Any
+
+class OverallDocumentItem(BaseModel):
+    document_id: str
+    v1_values: List[OverallValueItem] = Field(default_factory=list)
+    v3_values: List[OverallValueItem] = Field(default_factory=list)
+    added: List[OverallValueItem] = Field(default_factory=list)
+    removed: List[OverallValueItem] = Field(default_factory=list)
+
+class OverallValuesResponse(BaseModel):
+    status: str
+    total_documents: int
+    total_v1_values: int
+    total_v3_values: int
+    total_added: int
+    total_removed: int
+    v1_values: List[OverallValueItem] = Field(default_factory=list)
+    v3_values: List[OverallValueItem] = Field(default_factory=list)
+    added: List[OverallValueItem] = Field(default_factory=list)
+    removed: List[OverallValueItem] = Field(default_factory=list)
+    documents: List[OverallDocumentItem] = Field(default_factory=list)
+
 class DocumentMetricItem(BaseModel):
     document_id: str
     v1_count: int

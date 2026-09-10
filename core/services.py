@@ -6,6 +6,9 @@ from deepdiff import DeepDiff
 from core.database import get_collection_direct
 from core.schemas import (
     AnalyzePathResponse,
+    OverallDocumentItem,
+    OverallValueItem,
+    OverallValuesResponse,
     CategoryItem,
     ChartData,
     DocumentMetricItem,
@@ -150,6 +153,26 @@ def compute_path_values_comparison(
     )
     return summary, doc_values_map
 
+
+def flatten_json_leaves(data: Any, current_path: str = "root") -> Dict[str, Any]:
+    """Return every scalar leaf keyed by its concrete JSON path."""
+    flattened: Dict[str, Any] = {}
+    if isinstance(data, dict):
+        for key, value in data.items():
+            flatten_path = f"{current_path}['{key}']"
+            flattened.update(flatten_json_leaves(value, flatten_path))
+    elif isinstance(data, list):
+        for index, value in enumerate(data):
+            flattened.update(flatten_json_leaves(value, f"{current_path}[{index}]"))
+    else:
+        flattened[current_path] = data
+    return flattened
+
+
+def _overall_items(values: Dict[str, Any]) -> List[OverallValueItem]:
+    return [OverallValueItem(path=path, value=value) for path, value in sorted(values.items())]
+
+
 class ParserAnalyticsService:
 
     @staticmethod
@@ -179,6 +202,60 @@ class ParserAnalyticsService:
             if isinstance(v3_json, dict):
                 all_paths.update(discover_paths(v3_json))
         return sorted(list(all_paths))
+
+    @staticmethod
+    def analyze_all_paths_pipeline(
+        mongo_uri: str,
+        database: str,
+        collection: str,
+        limit: Optional[int] = None
+    ) -> OverallValuesResponse:
+        """Compare every scalar key/value without requiring a target path."""
+        documents = ParserAnalyticsService.fetch_documents(mongo_uri, database, collection, limit)
+        if not documents:
+            raise ValueError(f"No documents found in collection '{collection}'.")
+
+        all_v1: Dict[str, Any] = {}
+        all_v3: Dict[str, Any] = {}
+        all_added: Dict[str, Any] = {}
+        all_removed: Dict[str, Any] = {}
+        document_items: List[OverallDocumentItem] = []
+
+        for doc in documents:
+            v1_json = doc.get("parserResponseV1", {}).get("parserJson", {})
+            v3_json = doc.get("parserResponseV3", {}).get("parserJson", {})
+            v1 = flatten_json_leaves(v1_json)
+            v3 = flatten_json_leaves(v3_json)
+
+            # A changed value is represented as removed V1 and added V3.
+            added = {path: value for path, value in v3.items() if path not in v1 or v1[path] != value}
+            removed = {path: value for path, value in v1.items() if path not in v3 or v1[path] != v3[path]}
+            all_v1.update(v1)
+            all_v3.update(v3)
+            all_added.update(added)
+            all_removed.update(removed)
+
+            document_items.append(OverallDocumentItem(
+                document_id=doc["_id"],
+                v1_values=_overall_items(v1),
+                v3_values=_overall_items(v3),
+                added=_overall_items(added),
+                removed=_overall_items(removed),
+            ))
+
+        return OverallValuesResponse(
+            status="success",
+            total_documents=len(documents),
+            total_v1_values=sum(len(item.v1_values) for item in document_items),
+            total_v3_values=sum(len(item.v3_values) for item in document_items),
+            total_added=sum(len(item.added) for item in document_items),
+            total_removed=sum(len(item.removed) for item in document_items),
+            v1_values=_overall_items(all_v1),
+            v3_values=_overall_items(all_v3),
+            added=_overall_items(all_added),
+            removed=_overall_items(all_removed),
+            documents=document_items,
+        )
 
     @staticmethod
     def analyze_pipeline(

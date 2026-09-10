@@ -8,6 +8,8 @@ from core.database import verify_connection
 from core.schemas import (
     AnalyzePathRequest,
     AnalyzePathResponse,
+    OverallAnalyzeRequest,
+    OverallValuesResponse,
     DocumentPreviewRequest,
     DocumentPreviewResponse,
     MongoConnectionRequest,
@@ -93,6 +95,24 @@ def analyze_path_endpoint(req: AnalyzePathRequest):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Analysis failed: {exc}"
         )
+
+@router.post("/analyze/overall", response_model=OverallValuesResponse, status_code=status.HTTP_200_OK)
+def analyze_overall_endpoint(req: OverallAnalyzeRequest):
+    try:
+        return ParserAnalyticsService.analyze_all_paths_pipeline(
+            mongo_uri=req.mongo_uri,
+            database=req.database,
+            collection=req.collection,
+            limit=req.limit,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Overall analysis failed: {exc}",
+        )
+
 
 @router.post("/export/csv",include_in_schema=False)
 def export_csv(req: AnalyzePathRequest):
