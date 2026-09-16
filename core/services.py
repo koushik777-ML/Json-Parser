@@ -85,32 +85,6 @@ def discover_paths(data: Any, max_depth: int = 5) -> Set[str]:
     return discovered
 
 
-def extract_keys_from_json(
-    data: Any,
-    current_path: str = "root",
-    max_depth: int = 25,
-) -> Tuple[List[str], Set[str], Set[str]]:
-    occurrences: List[str] = []
-    unique_paths: Set[str] = set()
-    raw_keys: Set[str] = set()
-
-    def traverse(value: Any, path: str, depth: int) -> None:
-        if depth > max_depth:
-            return
-        if isinstance(value, dict):
-            for key, child in value.items():
-                child_path = f"{path}['{key}']"
-                occurrences.append(child_path)
-                unique_paths.add(child_path)
-                raw_keys.add(key)
-                traverse(child, child_path, depth + 1)
-        elif isinstance(value, list):
-            for item in value:
-                traverse(item, f"{path}[*]", depth + 1)
-
-    traverse(data, current_path, 0)
-    return occurrences, unique_paths, raw_keys
-
 def compute_path_values_comparison(
     documents: List[Dict[str, Any]],
     path: str
