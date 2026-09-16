@@ -6,9 +6,6 @@ from deepdiff import DeepDiff
 from core.database import get_collection_direct
 from core.schemas import (
     AnalyzePathResponse,
-    OverallDocumentItem,
-    OverallValueItem,
-    OverallValuesResponse,
     CategoryItem,
     ChartData,
     DocumentMetricItem,
@@ -87,6 +84,39 @@ def discover_paths(data: Any, max_depth: int = 5) -> Set[str]:
     traverse(data, "root", 0)
     return discovered
 
+
+def path_to_dot_notation(path: str) -> str:
+    path = re.sub(r"^root\['([^']+)'\]", r"\1", path)
+    path = re.sub(r"\['([^']+)'\]", r".\1", path)
+    return path.lstrip(".") if path != "root" else ""
+
+
+def extract_keys_from_json(
+    data: Any,
+    current_path: str = "root",
+    max_depth: int = 25,
+) -> Tuple[List[str], Set[str], Set[str]]:
+    occurrences: List[str] = []
+    unique_paths: Set[str] = set()
+    raw_keys: Set[str] = set()
+
+    def traverse(value: Any, path: str, depth: int) -> None:
+        if depth > max_depth:
+            return
+        if isinstance(value, dict):
+            for key, child in value.items():
+                child_path = f"{path}['{key}']"
+                occurrences.append(child_path)
+                unique_paths.add(child_path)
+                raw_keys.add(key)
+                traverse(child, child_path, depth + 1)
+        elif isinstance(value, list):
+            for item in value:
+                traverse(item, f"{path}[*]", depth + 1)
+
+    traverse(data, current_path, 0)
+    return occurrences, unique_paths, raw_keys
+
 def compute_path_values_comparison(
     documents: List[Dict[str, Any]],
     path: str
@@ -97,8 +127,8 @@ def compute_path_values_comparison(
 
     for doc in documents:
         doc_id = str(doc["_id"])
-        v1 = doc.get("parserResponseV1", {}).get("parserJson", {})
-        v3 = doc.get("parserResponseV3", {}).get("parserJson", {})
+        v1 = _parser_json(doc, "v5")
+        v3 = _parser_json(doc, "v7")
 
         v1_extracted = walk_json_path(v1, path)
         v3_extracted = walk_json_path(v3, path)
@@ -154,23 +184,15 @@ def compute_path_values_comparison(
     return summary, doc_values_map
 
 
-def flatten_json_leaves(data: Any, current_path: str = "root") -> Dict[str, Any]:
-    """Return every scalar leaf keyed by its concrete JSON path."""
-    flattened: Dict[str, Any] = {}
-    if isinstance(data, dict):
-        for key, value in data.items():
-            flatten_path = f"{current_path}['{key}']"
-            flattened.update(flatten_json_leaves(value, flatten_path))
-    elif isinstance(data, list):
-        for index, value in enumerate(data):
-            flattened.update(flatten_json_leaves(value, f"{current_path}[{index}]"))
-    else:
-        flattened[current_path] = data
-    return flattened
+def _parser_json(document: Dict[str, Any], version: str) -> Any:
+    value = document.get(version)
+    if value is not None:
+        if isinstance(value, dict) and "parserJson" in value:
+            return value.get("parserJson", {})
+        return value
 
-
-def _overall_items(values: Dict[str, Any]) -> List[OverallValueItem]:
-    return [OverallValueItem(path=path, value=value) for path, value in sorted(values.items())]
+    legacy_key = "parserResponseV1" if version == "v5" else "parserResponseV3"
+    return document.get(legacy_key, {}).get("parserJson", {})
 
 
 class ParserAnalyticsService:
@@ -178,7 +200,7 @@ class ParserAnalyticsService:
     @staticmethod
     def fetch_documents(mongo_uri: str, database: str, collection: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         col = get_collection_direct(mongo_uri, database, collection)
-        query = col.find({}, {"_id": 1, "parserResponseV1": 1, "parserResponseV3": 1})
+        query = col.find({}, {"_id": 1, "v5": 1, "v7": 1, "parserResponseV1": 1, "parserResponseV3": 1})
         if limit and limit > 0:
             query = query.limit(limit)
         
@@ -186,8 +208,8 @@ class ParserAnalyticsService:
         for doc in query:
             docs.append({
                 "_id": str(doc["_id"]),
-                "parserResponseV1": doc.get("parserResponseV1", {}),
-                "parserResponseV3": doc.get("parserResponseV3", {})
+                "v5": doc.get("v5") or doc.get("parserResponseV1", {}),
+                "v7": doc.get("v7") or doc.get("parserResponseV3", {})
             })
         return docs
 
@@ -195,67 +217,13 @@ class ParserAnalyticsService:
     def extract_suggested_paths(sample_docs: List[Dict[str, Any]]) -> List[str]:
         all_paths = set()
         for doc in sample_docs:
-            v1_json = doc.get("parserResponseV1", {}).get("parserJson", {})
-            v3_json = doc.get("parserResponseV3", {}).get("parserJson", {})
+            v1_json = _parser_json(doc, "v5")
+            v3_json = _parser_json(doc, "v7")
             if isinstance(v1_json, dict):
                 all_paths.update(discover_paths(v1_json))
             if isinstance(v3_json, dict):
                 all_paths.update(discover_paths(v3_json))
         return sorted(list(all_paths))
-
-    @staticmethod
-    def analyze_all_paths_pipeline(
-        mongo_uri: str,
-        database: str,
-        collection: str,
-        limit: Optional[int] = None
-    ) -> OverallValuesResponse:
-        """Compare every scalar key/value without requiring a target path."""
-        documents = ParserAnalyticsService.fetch_documents(mongo_uri, database, collection, limit)
-        if not documents:
-            raise ValueError(f"No documents found in collection '{collection}'.")
-
-        all_v1: Dict[str, Any] = {}
-        all_v3: Dict[str, Any] = {}
-        all_added: Dict[str, Any] = {}
-        all_removed: Dict[str, Any] = {}
-        document_items: List[OverallDocumentItem] = []
-
-        for doc in documents:
-            v1_json = doc.get("parserResponseV1", {}).get("parserJson", {})
-            v3_json = doc.get("parserResponseV3", {}).get("parserJson", {})
-            v1 = flatten_json_leaves(v1_json)
-            v3 = flatten_json_leaves(v3_json)
-
-            # A changed value is represented as removed V1 and added V3.
-            added = {path: value for path, value in v3.items() if path not in v1 or v1[path] != value}
-            removed = {path: value for path, value in v1.items() if path not in v3 or v1[path] != v3[path]}
-            all_v1.update(v1)
-            all_v3.update(v3)
-            all_added.update(added)
-            all_removed.update(removed)
-
-            document_items.append(OverallDocumentItem(
-                document_id=doc["_id"],
-                v1_values=_overall_items(v1),
-                v3_values=_overall_items(v3),
-                added=_overall_items(added),
-                removed=_overall_items(removed),
-            ))
-
-        return OverallValuesResponse(
-            status="success",
-            total_documents=len(documents),
-            total_v1_values=sum(len(item.v1_values) for item in document_items),
-            total_v3_values=sum(len(item.v3_values) for item in document_items),
-            total_added=sum(len(item.added) for item in document_items),
-            total_removed=sum(len(item.removed) for item in document_items),
-            v1_values=_overall_items(all_v1),
-            v3_values=_overall_items(all_v3),
-            added=_overall_items(all_added),
-            removed=_overall_items(all_removed),
-            documents=document_items,
-        )
 
     @staticmethod
     def analyze_pipeline(
@@ -274,8 +242,8 @@ class ParserAnalyticsService:
 
         diff_collection_data: List[Dict[str, Any]] = []
         for doc in documents:
-            v1 = doc.get("parserResponseV1", {}).get("parserJson", {})
-            v3 = doc.get("parserResponseV3", {}).get("parserJson", {})
+            v1 = _parser_json(doc, "v5")
+            v3 = _parser_json(doc, "v7")
             
             diff = DeepDiff(v1, v3, ignore_order=False, report_repetition=True)
             diff_dict = json.loads(diff.to_json()) if diff else {}
@@ -326,8 +294,8 @@ class ParserAnalyticsService:
         # 2b. Check source collections for unchanged / common items
         for doc in documents:
             doc_id = doc["_id"]
-            v1 = doc.get("parserResponseV1", {}).get("parserJson", {})
-            v3 = doc.get("parserResponseV3", {}).get("parserJson", {})
+            v1 = _parser_json(doc, "v5")
+            v3 = _parser_json(doc, "v7")
 
             old_values = dict(walk_json_path(v1, path))
             new_values = dict(walk_json_path(v3, path))
