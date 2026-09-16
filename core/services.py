@@ -85,12 +85,6 @@ def discover_paths(data: Any, max_depth: int = 5) -> Set[str]:
     return discovered
 
 
-def path_to_dot_notation(path: str) -> str:
-    path = re.sub(r"^root\['([^']+)'\]", r"\1", path)
-    path = re.sub(r"\['([^']+)'\]", r".\1", path)
-    return path.lstrip(".") if path != "root" else ""
-
-
 def extract_keys_from_json(
     data: Any,
     current_path: str = "root",
