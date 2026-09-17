@@ -118,7 +118,8 @@ def export_csv(req: AnalyzePathRequest):
             "partial_count",
             "common_tokens",
             "added_tokens",
-            "removed_tokens"
+            "removed_tokens",
+            "partial_tokens"
         ])
         
         for doc in response.documents:
@@ -132,7 +133,11 @@ def export_csv(req: AnalyzePathRequest):
                 doc.partial_count,
                 "; ".join(doc.common),
                 "; ".join(doc.added),
-                "; ".join(doc.removed)
+                "; ".join(doc.removed),
+                "; ".join(
+                    f"{match['old']} -> {match['new']}"
+                    for match in doc.partial
+                )
             ])
             
         output.seek(0)

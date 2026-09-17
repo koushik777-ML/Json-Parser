@@ -50,6 +50,11 @@ def walk_json_path(data: Any, path: str) -> List[Tuple[str, Any]]:
 def is_empty(value: Any) -> bool:
     return value in (None, "", [], {})
 
+def _comparison_forms(value: str) -> Set[str]:
+    normalized = re.sub(r"[^a-z0-9]+", " ", value.lower().replace("&", " and ")).strip()
+    compact = normalized.replace(" ", "")
+    return {compact}
+
 def is_partial(old: Any, new: Any) -> bool:
     if not isinstance(old, str) or not isinstance(new, str):
         return False
@@ -57,9 +62,19 @@ def is_partial(old: Any, new: Any) -> bool:
     new_clean = new.lower().strip()
     if not old_clean or not new_clean:
         return False
-    old_compact = re.sub(r"\s+", "", old_clean)
-    new_compact = re.sub(r"\s+", "", new_clean)
-    return old_clean != new_clean and (old_compact in new_compact or new_compact in old_compact)
+    old_forms = _comparison_forms(old_clean)
+    new_forms = _comparison_forms(new_clean)
+    if old_clean == new_clean:
+        return False
+    return any(
+        old_form == new_form
+        or (
+            not (old_form + "s" == new_form or new_form + "s" == old_form)
+            and (old_form in new_form or new_form in old_form)
+        )
+        for old_form in old_forms
+        for new_form in new_forms
+    )
 
 
 def find_partial_matches(
@@ -86,7 +101,6 @@ def find_partial_matches(
                 new_paths.setdefault(normalized, actual_path)
 
     matched_old: Set[str] = set()
-    matched_new: Set[str] = set()
     candidates = [
         (abs(len(old_value) - len(new_value)), old_value, new_value)
         for old_value in old_values
@@ -98,10 +112,9 @@ def find_partial_matches(
 
     matches = []
     for _, old_value, new_value in sorted(candidates):
-        if old_value in matched_old or new_value in matched_new:
+        if old_value in matched_old:
             continue
         matched_old.add(old_value)
-        matched_new.add(new_value)
         matches.append({
             "old": old_values[old_value],
             "new": new_values[new_value],
