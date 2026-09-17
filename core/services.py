@@ -1,6 +1,5 @@
 import re
 import json
-from collections import Counter
 from typing import Any, Dict, List, Set, Tuple, Optional
 from deepdiff import DeepDiff
 from core.database import get_collection_direct
@@ -58,7 +57,59 @@ def is_partial(old: Any, new: Any) -> bool:
     new_clean = new.lower().strip()
     if not old_clean or not new_clean:
         return False
-    return old_clean != new_clean and (old_clean in new_clean or new_clean in old_clean)
+    old_compact = re.sub(r"\s+", "", old_clean)
+    new_compact = re.sub(r"\s+", "", new_clean)
+    return old_clean != new_clean and (old_compact in new_compact or new_compact in old_compact)
+
+
+def find_partial_matches(
+    old_extracted: List[Tuple[str, Any]],
+    new_extracted: List[Tuple[str, Any]]
+) -> List[Dict[str, Any]]:
+    old_values: Dict[str, str] = {}
+    old_paths: Dict[str, str] = {}
+    new_values: Dict[str, str] = {}
+    new_paths: Dict[str, str] = {}
+
+    for actual_path, value in old_extracted:
+        if isinstance(value, str) and not is_empty(value):
+            normalized = value.strip().lower()
+            if normalized and normalized != "nan":
+                old_values.setdefault(normalized, normalized)
+                old_paths.setdefault(normalized, actual_path)
+
+    for actual_path, value in new_extracted:
+        if isinstance(value, str) and not is_empty(value):
+            normalized = value.strip().lower()
+            if normalized and normalized != "nan":
+                new_values.setdefault(normalized, normalized)
+                new_paths.setdefault(normalized, actual_path)
+
+    matched_old: Set[str] = set()
+    matched_new: Set[str] = set()
+    candidates = [
+        (abs(len(old_value) - len(new_value)), old_value, new_value)
+        for old_value in old_values
+        for new_value in new_values
+        if old_value not in new_values
+        and new_value not in old_values
+        and is_partial(old_value, new_value)
+    ]
+
+    matches = []
+    for _, old_value, new_value in sorted(candidates):
+        if old_value in matched_old or new_value in matched_new:
+            continue
+        matched_old.add(old_value)
+        matched_new.add(new_value)
+        matches.append({
+            "old": old_values[old_value],
+            "new": new_values[new_value],
+            "old_path": old_paths[old_value],
+            "new_path": new_paths[new_value],
+        })
+
+    return matches
 
 def normalize_path(path: str) -> str:
     return re.sub(r"\[\d+\]", "[*]", path)
@@ -297,10 +348,6 @@ class ParserAnalyticsService:
                 doc_categories_map[doc_id].append(item)
 
 
-        all_added_tokens = []
-        all_removed_tokens = []
-        all_common_tokens = []
-        
         doc_metric_items: List[DocumentMetricItem] = []
         total_common_sum = 0
         total_added_sum = 0
@@ -309,6 +356,8 @@ class ParserAnalyticsService:
         total_empty_sum = 0
         total_v1_sum = 0
         total_v3_sum = 0
+        global_v1_values: Set[str] = set()
+        globally_covered_v1_values: Set[str] = set()
 
         for doc in documents:
             doc_id = doc["_id"]
@@ -318,24 +367,29 @@ class ParserAnalyticsService:
             v1_set = set(doc_val_info.get("v1_values", []))
             v3_set = set(doc_val_info.get("v3_values", []))
             common = doc_val_info.get("common", [])
-            added = doc_val_info.get("added", [])
-            removed = doc_val_info.get("removed", [])
+            old_extracted = walk_json_path(_parser_json(doc, "v5"), path)
+            new_extracted = walk_json_path(_parser_json(doc, "v7"), path)
+            partial_matches = find_partial_matches(old_extracted, new_extracted)
+            partial_old = {match["old"] for match in partial_matches}
+            partial_new = {match["new"] for match in partial_matches}
+            added = sorted(v3_set - v1_set - partial_new)
+            removed = sorted(v1_set - v3_set - partial_old)
 
-            partial_items: List[Dict[str, Any]] = []
-            for it in items:
-                if it["category"] == "partial":
-                    partial_items.append({
-                        "old": it["old_value"],
-                        "new": it["new_value"],
-                        "path": it["path"]
-                    })
-            
-            p_count = sum(1 for it in items if it["category"] == "partial")
+            partial_items = [
+                {
+                    "old": match["old"],
+                    "new": match["new"],
+                    "path": f"{match['old_path']} -> {match['new_path']}"
+                }
+                for match in partial_matches
+            ]
+
+            p_count = len(partial_matches)
             e_count = sum(1 for it in items if it["category"] == "empty")
 
-            all_common_tokens.extend(common)
-            all_added_tokens.extend(added)
-            all_removed_tokens.extend(removed)
+            global_v1_values.update(v1_set)
+            globally_covered_v1_values.update(v1_set & v3_set)
+            globally_covered_v1_values.update(partial_old)
 
             total_common_sum += len(common)
             total_added_sum += len(added)
@@ -359,23 +413,9 @@ class ParserAnalyticsService:
                 partial=partial_items
             ))
 
-        macro_precision = (
-            round((total_common_sum / (total_common_sum + total_added_sum)) * 100, 2)
-            if (total_common_sum + total_added_sum) > 0 else 0.0
-        )
-        macro_recall = (
-            round((total_common_sum / (total_common_sum + total_removed_sum)) * 100, 2)
-            if (total_common_sum + total_removed_sum) > 0 else 0.0
-        )
-        macro_f1 = (
-            round((2 * (macro_precision * macro_recall) / (macro_precision + macro_recall)), 2)
-            if (macro_precision + macro_recall) > 0 else 0.0
-        )
-        jaccard = (
-            round((total_common_sum / (total_common_sum + total_added_sum + total_removed_sum)) * 100, 2)
-            if (total_common_sum + total_added_sum + total_removed_sum) > 0 else 0.0
-        )
-
+        v1_coverage = round(
+            (len(globally_covered_v1_values) / len(global_v1_values)) * 100, 2
+        ) if global_v1_values else 0.0
         summary = OverallMetricsSummary(
             total_documents=len(documents),
             total_v1_items=total_v1_sum,
@@ -385,16 +425,8 @@ class ParserAnalyticsService:
             total_removed=total_removed_sum,
             total_partial=total_partial_sum,
             total_empty=total_empty_sum,
-            macro_precision=macro_precision,
-            macro_recall=macro_recall,
-            macro_f1=macro_f1,
-            jaccard_similarity=jaccard
+            v1_coverage=v1_coverage
         )
-
-
-        top_added = [{"token": k, "count": v} for k, v in Counter(all_added_tokens).most_common(10)]
-        top_removed = [{"token": k, "count": v} for k, v in Counter(all_removed_tokens).most_common(10)]
-        top_common = [{"token": k, "count": v} for k, v in Counter(all_common_tokens).most_common(10)]
 
         perfect_match_docs = sum(1 for d in doc_metric_items if d.added_count == 0 and d.removed_count == 0 and d.common_count > 0)
         modified_docs = sum(1 for d in doc_metric_items if d.added_count > 0 or d.removed_count > 0 or d.partial_count > 0)
@@ -408,9 +440,6 @@ class ParserAnalyticsService:
                 "Partial Matches": total_partial_sum,
                 "Empty / Null": total_empty_sum
             },
-            top_added_tokens=top_added,
-            top_removed_tokens=top_removed,
-            top_common_tokens=top_common,
             doc_changes_distribution={
                 "100% Match": perfect_match_docs,
                 "Modified": modified_docs,

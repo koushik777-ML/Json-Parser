@@ -67,10 +67,7 @@ class OverallMetricsSummary(BaseModel):
     total_removed: int
     total_partial: int
     total_empty: int
-    macro_precision: float
-    macro_recall: float
-    macro_f1: float
-    jaccard_similarity: float
+    v1_coverage: float
 
 class CategoryItem(BaseModel):
     category: str
@@ -81,9 +78,6 @@ class CategoryItem(BaseModel):
 
 class ChartData(BaseModel):
     categories_distribution: Dict[str, int]
-    top_added_tokens: List[Dict[str, Any]]
-    top_removed_tokens: List[Dict[str, Any]]
-    top_common_tokens: List[Dict[str, Any]]
     doc_changes_distribution: Dict[str, int]
 
 class AnalyzePathResponse(BaseModel):

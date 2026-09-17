@@ -53,7 +53,7 @@
       <div>
         <h1 class="font-bold text-lg text-slate-100 tracking-tight flex items-center gap-2">
           Parser Validation Platform
-          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/60">V1 vs V3</span>
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/60">old_parser vs new_parser</span>
         </h1>
         <p class="text-xs text-slate-400">DeepDiff &amp; JSON-Path Extraction Metric Engine</p>
       </div>
@@ -228,7 +228,7 @@
         </div>
         <!-- Card 3 -->
         <div class="bg-cardbg border border-blue-900/60 rounded-2xl p-4 shadow-md flex flex-col justify-between bg-blue-950/20">
-          <span class="text-xs font-medium text-blue-400">Added in V3</span>
+          <span class="text-xs font-medium text-blue-400">Added in new_parser</span>
           <div class="mt-2 flex items-baseline justify-between">
             <span id="kpiAdded" class="text-2xl font-black text-blue-400">0</span>
             <i class="fa-solid fa-plus text-blue-500 text-sm"></i>
@@ -236,7 +236,7 @@
         </div>
         <!-- Card 4 -->
         <div class="bg-cardbg border border-rose-900/60 rounded-2xl p-4 shadow-md flex flex-col justify-between bg-rose-950/20">
-          <span class="text-xs font-medium text-rose-400">Removed in V3</span>
+          <span class="text-xs font-medium text-rose-400">Removed in new_parser</span>
           <div class="mt-2 flex items-baseline justify-between">
             <span id="kpiRemoved" class="text-2xl font-black text-rose-400">0</span>
             <i class="fa-solid fa-minus text-rose-500 text-sm"></i>
@@ -252,32 +252,23 @@
         </div>
         <!-- Card 6 -->
         <div class="bg-cardbg border border-purple-900/60 rounded-2xl p-4 shadow-md flex flex-col justify-between bg-purple-950/20">
-          <span class="text-xs font-medium text-purple-400">Overlap / F1-Score</span>
+          <span class="text-xs font-medium text-purple-400">old_parser Coverage</span>
           <div class="mt-2 flex items-baseline justify-between">
-            <span id="kpiF1" class="text-2xl font-black text-purple-400">0%</span>
+            <span id="kpiCoverage" class="text-2xl font-black text-purple-400">0%</span>
             <i class="fa-solid fa-bullseye text-purple-500 text-sm"></i>
           </div>
         </div>
       </div>
 
       <!-- CHARTS ROW -->
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div class="grid grid-cols-1 gap-6">
         <!-- Chart 1: Donut Chart -->
-        <div class="lg:col-span-5 bg-cardbg border border-bordercol rounded-2xl p-5 shadow-xl flex flex-col">
+        <div class="bg-cardbg border border-bordercol rounded-2xl p-5 shadow-xl flex flex-col">
           <h4 class="font-semibold text-sm text-slate-200 mb-3 flex items-center gap-2">
             <i class="fa-solid fa-chart-pie text-emerald-400"></i> Category Distribution
           </h4>
           <div class="flex-1 relative min-h-[260px] flex items-center justify-center">
             <canvas id="categoryChart"></canvas>
-          </div>
-        </div>
-        <!-- Chart 2: Top Changed Tokens Bar Chart -->
-        <div class="lg:col-span-7 bg-cardbg border border-bordercol rounded-2xl p-5 shadow-xl flex flex-col">
-          <h4 class="font-semibold text-sm text-slate-200 mb-3 flex items-center gap-2">
-            <i class="fa-solid fa-chart-bar text-teal-400"></i> Top Tokens Added vs Removed
-          </h4>
-          <div class="flex-1 relative min-h-[260px]">
-            <canvas id="tokensChart"></canvas>
           </div>
         </div>
       </div>
@@ -311,11 +302,11 @@
             <thead>
               <tr class="border-b border-bordercol bg-slate-900/60 text-slate-400 uppercase tracking-wider font-semibold">
                 <th class="p-3.5 pl-5">Document ID</th>
-                <th class="p-3.5 text-center">V1 Count</th>
-                <th class="p-3.5 text-center">V3 Count</th>
+                <th class="p-3.5 text-center">old_parser Count</th>
+                <th class="p-3.5 text-center">new_parser Count</th>
                 <th class="p-3.5 text-center">Common</th>
-                <th class="p-3.5 text-center">Added (V3)</th>
-                <th class="p-3.5 text-center">Removed (V1)</th>
+                <th class="p-3.5 text-center">Added (new_parser)</th>
+                <th class="p-3.5 text-center">Removed (old_parser)</th>
                 <th class="p-3.5 text-center">Partial</th>
                 <th class="p-3.5 pr-5 text-right">Details</th>
               </tr>
@@ -364,7 +355,7 @@
         <!-- Sets comparison -->
         <div>
           <h4 class="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <i class="fa-solid fa-circle-check text-xs"></i> Common Tokens (Identical in V1 &amp; V3)
+            <i class="fa-solid fa-circle-check text-xs"></i> Common Tokens (Identical in old_parser &amp; new_parser)
           </h4>
           <div id="modalCommonBadges" class="flex flex-wrap gap-1.5 p-3 rounded-xl bg-slate-900/90 border border-bordercol min-h-[44px]">
           </div>
@@ -373,14 +364,14 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <h4 class="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <i class="fa-solid fa-plus-circle text-xs"></i> Added in V3
+              <i class="fa-solid fa-plus-circle text-xs"></i> Added in new_parser
             </h4>
             <div id="modalAddedBadges" class="flex flex-wrap gap-1.5 p-3 rounded-xl bg-slate-900/90 border border-bordercol min-h-[44px]">
             </div>
           </div>
           <div>
             <h4 class="text-xs font-semibold text-rose-400 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <i class="fa-solid fa-minus-circle text-xs"></i> Removed in V3 (Present in V1)
+              <i class="fa-solid fa-minus-circle text-xs"></i> Removed in new_parser (Present in old_parser)
             </h4>
             <div id="modalRemovedBadges" class="flex flex-wrap gap-1.5 p-3 rounded-xl bg-slate-900/90 border border-bordercol min-h-[44px]">
             </div>
@@ -405,7 +396,7 @@
     </div>
   </div>
 
-  <!-- MODAL: PATH VALUES SET COMPARISON (V1 vs V3) -->
+  <!-- MODAL: PATH VALUES SET COMPARISON (old_parser vs new_parser) -->
   <div id="pathValuesModal" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 hidden">
     <div class="bg-cardbg border border-bordercol rounded-2xl w-full max-w-5xl max-h-[90vh] shadow-2xl flex flex-col overflow-hidden animate-fade-in">
       <!-- Modal Header -->
@@ -416,7 +407,7 @@
           </div>
           <div>
             <h3 class="font-bold text-sm text-slate-100 flex items-center gap-2">
-              Path Values Set Comparison (V1 vs V3)
+              Path Values Set Comparison (old_parser vs new_parser)
             </h3>
             <p class="text-xs text-slate-400 font-mono" id="pathValuesModalSubtitle">Target Path Values Parity Analysis</p>
           </div>
@@ -431,29 +422,29 @@
         <!-- KPI Cards Grid -->
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <div class="bg-slate-900/80 border border-bordercol rounded-xl p-3 flex flex-col">
-            <span class="text-[11px] font-medium text-slate-400">Total Unique V1 Values</span>
+            <span class="text-[11px] font-medium text-slate-400">Total Unique old_parser Values</span>
             <span id="kpiValTotalV1" class="text-xl font-bold font-mono text-slate-200 mt-1">0</span>
-            <span class="text-[10px] text-slate-500 mt-0.5">Distinct in V1</span>
+            <span class="text-[10px] text-slate-500 mt-0.5">Distinct in old_parser</span>
           </div>
           <div class="bg-slate-900/80 border border-bordercol rounded-xl p-3 flex flex-col">
-            <span class="text-[11px] font-medium text-slate-400">Total Unique V3 Values</span>
+            <span class="text-[11px] font-medium text-slate-400">Total Unique new_parser Values</span>
             <span id="kpiValTotalV3" class="text-xl font-bold font-mono text-emerald-400 mt-1">0</span>
-            <span class="text-[10px] text-slate-500 mt-0.5">Distinct in V3</span>
+            <span class="text-[10px] text-slate-500 mt-0.5">Distinct in new_parser</span>
           </div>
           <div class="bg-slate-900/80 border border-bordercol rounded-xl p-3 flex flex-col">
-            <span class="text-[11px] font-medium text-emerald-400">Common Values (V1 &amp; V3)</span>
+            <span class="text-[11px] font-medium text-emerald-400">Common Values (old_parser &amp; new_parser)</span>
             <span id="kpiValCommon" class="text-xl font-bold font-mono text-emerald-300 mt-1">0</span>
             <span class="text-[10px] text-emerald-500/80 mt-0.5">Matches in both</span>
           </div>
           <div class="bg-slate-900/80 border border-bordercol rounded-xl p-3 flex flex-col">
-            <span class="text-[11px] font-medium text-blue-400">Added in V3 (V3 - V1)</span>
+            <span class="text-[11px] font-medium text-blue-400">Added in new_parser (new_parser - old_parser)</span>
             <span id="kpiValAddedV3" class="text-xl font-bold font-mono text-blue-300 mt-1">0</span>
             <span class="text-[10px] text-blue-500/80 mt-0.5">New values captured</span>
           </div>
           <div class="bg-slate-900/80 border border-bordercol rounded-xl p-3 flex flex-col">
-            <span class="text-[11px] font-medium text-rose-400">Removed in V3 (V1 - V3)</span>
+            <span class="text-[11px] font-medium text-rose-400">Removed in new_parser (old_parser - new_parser)</span>
             <span id="kpiValRemovedV3" class="text-xl font-bold font-mono text-rose-300 mt-1">0</span>
-            <span class="text-[10px] text-rose-500/80 mt-0.5">V1 values missing</span>
+            <span class="text-[10px] text-rose-500/80 mt-0.5">old_parser values missing</span>
           </div>
         </div>
 
@@ -462,11 +453,11 @@
           <!-- Filter Tabs -->
           <div class="flex flex-wrap items-center gap-1.5 p-1 bg-slate-900/90 rounded-xl border border-bordercol text-xs" id="valTabsContainer">
             <button type="button" data-tab="added" class="val-tab-btn px-3 py-1.5 rounded-lg font-medium transition bg-amber-600 text-white shadow-sm flex items-center gap-1.5">
-              <span>Added in V3</span>
+              <span>Added in new_parser</span>
               <span id="tabValBadgeAdded" class="px-1.5 py-0.2 rounded-full bg-slate-900/60 text-amber-200 text-[10px] font-mono">0</span>
             </button>
             <button type="button" data-tab="removed" class="val-tab-btn px-3 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center gap-1.5">
-              <span>Removed in V3</span>
+              <span>Removed in new_parser</span>
               <span id="tabValBadgeRemoved" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-rose-400 text-[10px] font-mono">0</span>
             </button>
             <button type="button" data-tab="common" class="val-tab-btn px-3 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center gap-1.5">
@@ -474,11 +465,11 @@
               <span id="tabValBadgeCommon" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-emerald-400 text-[10px] font-mono">0</span>
             </button>
             <button type="button" data-tab="allV3" class="val-tab-btn px-3 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center gap-1.5">
-              <span>All V3 Values</span>
+              <span>All new_parser Values</span>
               <span id="tabValBadgeAllV3" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 text-[10px] font-mono">0</span>
             </button>
             <button type="button" data-tab="allV1" class="val-tab-btn px-3 py-1.5 rounded-lg font-medium transition text-slate-400 hover:text-slate-200 hover:bg-slate-800 flex items-center gap-1.5">
-              <span>All V1 Values</span>
+              <span>All old_parser Values</span>
               <span id="tabValBadgeAllV1" class="px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300 text-[10px] font-mono">0</span>
             </button>
           </div>
@@ -527,7 +518,7 @@
       tableData: [],
       currentPage: 1,
       pageSize: 10,
-      charts: { category: null, tokens: null },
+      charts: { category: null },
       activeValTab: 'added',
       valFilterQuery: ''
     };
@@ -564,7 +555,7 @@
     const kpiAdded = document.getElementById('kpiAdded');
     const kpiRemoved = document.getElementById('kpiRemoved');
     const kpiPartial = document.getElementById('kpiPartial');
-    const kpiF1 = document.getElementById('kpiF1');
+    const kpiCoverage = document.getElementById('kpiCoverage');
 
     // Table elements
     const documentsTableBody = document.getElementById('documentsTableBody');
@@ -758,11 +749,10 @@
       kpiAdded.textContent = sum.total_added.toLocaleString();
       kpiRemoved.textContent = sum.total_removed.toLocaleString();
       kpiPartial.textContent = sum.total_partial.toLocaleString();
-      kpiF1.textContent = `${sum.macro_f1}%`;
+      kpiCoverage.textContent = `${sum.v1_coverage}%`;
 
       // Render Charts
       renderCategoryChart(data.chart_data.categories_distribution);
-      renderTokensChart(data.chart_data.top_added_tokens, data.chart_data.top_removed_tokens);
 
       // Render Table
       renderTable();
@@ -806,54 +796,6 @@
             }
           },
           cutout: '68%'
-        }
-      });
-    }
-
-    function renderTokensChart(addedTokens, removedTokens) {
-      const ctx = document.getElementById('tokensChart').getContext('2d');
-      if (state.charts.tokens) state.charts.tokens.destroy();
-
-      const allTokens = Array.from(new Set([
-        ...addedTokens.map(t => t.token),
-        ...removedTokens.map(t => t.token)
-      ])).slice(0, 8);
-
-      const addedMap = Object.fromEntries(addedTokens.map(t => [t.token, t.count]));
-      const removedMap = Object.fromEntries(removedTokens.map(t => [t.token, t.count]));
-
-      state.charts.tokens = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: allTokens.length > 0 ? allTokens : ['No Token Changes'],
-          datasets: [
-            {
-              label: 'Added in V3',
-              data: allTokens.map(t => addedMap[t] || 0),
-              backgroundColor: '#3b82f6',
-              borderRadius: 6
-            },
-            {
-              label: 'Removed in V3',
-              data: allTokens.map(t => removedMap[t] || 0),
-              backgroundColor: '#f43f5e',
-              borderRadius: 6
-            }
-          ]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { display: false } },
-            y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: '#334155' } }
-          },
-          plugins: {
-            legend: {
-              position: 'top',
-              labels: { color: '#cbd5e1', font: { size: 11 } }
-            }
-          }
         }
       });
     }
@@ -952,9 +894,9 @@
           <div class="p-2.5 rounded-lg bg-slate-950/80 border border-amber-900/50 flex flex-col gap-1 text-xs">
             <span class="text-[10px] text-slate-500 font-mono">${p.path}</span>
             <div class="flex items-center gap-3">
-              <div class="flex-1 bg-rose-950/40 p-1.5 rounded border border-rose-900/40 text-rose-300 font-mono"><span class="text-[10px] text-rose-400 block font-sans">Old (V1):</span>${p.old}</div>
+              <div class="flex-1 bg-rose-950/40 p-1.5 rounded border border-rose-900/40 text-rose-300 font-mono"><span class="text-[10px] text-rose-400 block font-sans">Old (old_parser):</span>${p.old}</div>
               <i class="fa-solid fa-arrow-right text-slate-600 text-xs"></i>
-              <div class="flex-1 bg-blue-950/40 p-1.5 rounded border border-blue-900/40 text-blue-300 font-mono"><span class="text-[10px] text-blue-400 block font-sans">New (V3):</span>${p.new}</div>
+              <div class="flex-1 bg-blue-950/40 p-1.5 rounded border border-blue-900/40 text-blue-300 font-mono"><span class="text-[10px] text-blue-400 block font-sans">New (new_parser):</span>${p.new}</div>
             </div>
           </div>
         `).join('')
