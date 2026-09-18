@@ -116,29 +116,39 @@ def export_csv(req: AnalyzePathRequest):
             "added_count",
             "removed_count",
             "partial_count",
-            "common_tokens",
-            "added_tokens",
-            "removed_tokens",
-            "partial_tokens"
+            "common_value",
+            "added_value",
+            "removed_value",
+            "partial_old",
+            "partial_new",
+            "partial_path"
         ])
         
         for doc in response.documents:
-            writer.writerow([
-                doc.document_id,
-                doc.v1_count,
-                doc.v3_count,
-                doc.common_count,
-                doc.added_count,
-                doc.removed_count,
-                doc.partial_count,
-                "; ".join(doc.common),
-                "; ".join(doc.added),
-                "; ".join(doc.removed),
-                "; ".join(
-                    f"{match['old']} -> {match['new']}"
-                    for match in doc.partial
-                )
-            ])
+            row_count = max(
+                len(doc.common),
+                len(doc.added),
+                len(doc.removed),
+                len(doc.partial),
+                1
+            )
+            for index in range(row_count):
+                partial = doc.partial[index] if index < len(doc.partial) else {}
+                writer.writerow([
+                    doc.document_id,
+                    doc.v1_count,
+                    doc.v3_count,
+                    doc.common_count,
+                    doc.added_count,
+                    doc.removed_count,
+                    doc.partial_count,
+                    doc.common[index] if index < len(doc.common) else "",
+                    doc.added[index] if index < len(doc.added) else "",
+                    doc.removed[index] if index < len(doc.removed) else "",
+                    partial.get("old", ""),
+                    partial.get("new", ""),
+                    partial.get("path", "")
+                ])
             
         output.seek(0)
         filename = f"parser_metrics_{req.collection}.csv"
